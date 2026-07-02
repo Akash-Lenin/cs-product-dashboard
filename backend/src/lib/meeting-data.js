@@ -260,7 +260,7 @@ export async function createMeetingNote(meetingId, payload = {}) {
 }
 
 export async function updateMeetingNote(noteId, payload = {}) {
-  const allowedFields = ["body", "note_type", "owner_name"];
+  const allowedFields = ["body", "note_type", "owner_name", "decision"];
 
   const updates = Object.fromEntries(
     Object.entries(payload)
@@ -280,6 +280,24 @@ export async function updateMeetingNote(noteId, payload = {}) {
     throw badRequest("Invalid note type supplied");
   }
 
+  const { data: previousNote, error: previousError } = await supabase
+    .from("cs_meeting_notes")
+    .select("*")
+    .eq("id", noteId)
+    .single();
+
+  if (previousError) {
+    if (isNotFoundError(previousError)) {
+      const notFoundError = new Error("Meeting note not found");
+      notFoundError.status = 404;
+      throw notFoundError;
+    }
+    if (isMissingRelationError(previousError)) {
+      throw missingTablesError();
+    }
+    throw previousError;
+  }
+
   const { data, error } = await supabase
     .from("cs_meeting_notes")
     .update(updates)
@@ -288,20 +306,30 @@ export async function updateMeetingNote(noteId, payload = {}) {
     .single();
 
   if (error) {
-    if (isNotFoundError(error)) {
-      const notFoundError = new Error("Meeting note not found");
-      notFoundError.status = 404;
-      throw notFoundError;
-    }
     if (isMissingColumnError(error)) {
       throw badRequest(
-        "Note owners are not enabled yet. Run the meeting collaboration migration first."
+        "This field is not enabled yet. Run the latest meeting migrations first."
       );
     }
     if (isMissingRelationError(error)) {
       throw missingTablesError();
     }
     throw error;
+  }
+
+  // Mirror a newly captured decision into the linked issue's history.
+  if (
+    updates.decision &&
+    updates.decision !== (previousNote.decision || null) &&
+    data.issue_import_key
+  ) {
+    const meeting = await getMeetingRow(data.meeting_id).catch(() => null);
+    await logToIssueHistory(
+      data.issue_import_key,
+      `Decision${meeting ? ` (${meeting.title}, ${meeting.meeting_date})` : ""}: ${updates.decision}${data.owner_name ? ` — owner ${data.owner_name}` : ""}`,
+      String(payload.actor_name || "").trim(),
+      data.meeting_id
+    );
   }
 
   return data;
@@ -318,20 +346,33 @@ export async function createActionItem(meetingId, payload = {}) {
   }
 
   const meeting = await getMeetingRow(meetingId);
+  const noteId = Number(payload.note_id) || null;
 
-  const { data, error } = await supabase
+  const insertPayload = {
+    meeting_id: meeting.id,
+    issue_import_key: issueImportKey,
+    note_id: noteId,
+    description,
+    owner_name: ownerName || null,
+    due_date: payload.due_date || null,
+    status: "open",
+    created_by: actorName || null
+  };
+
+  let { data, error } = await supabase
     .from("cs_meeting_action_items")
-    .insert({
-      meeting_id: meeting.id,
-      issue_import_key: issueImportKey,
-      description,
-      owner_name: ownerName || null,
-      due_date: payload.due_date || null,
-      status: "open",
-      created_by: actorName || null
-    })
+    .insert(insertPayload)
     .select("*")
     .single();
+
+  if (error && isMissingColumnError(error)) {
+    const { note_id: _omitted, ...legacyPayload } = insertPayload;
+    ({ data, error } = await supabase
+      .from("cs_meeting_action_items")
+      .insert(legacyPayload)
+      .select("*")
+      .single());
+  }
 
   if (error) {
     if (isMissingRelationError(error)) {

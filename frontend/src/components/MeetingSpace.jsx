@@ -64,36 +64,6 @@ function patchJson(url, body) {
 const inputClass =
   "rounded-[8px] border border-[var(--app-border)] bg-[var(--app-surface)] px-2.5 py-1.5 text-[12.5px] text-[var(--app-text-body)] outline-none transition focus:border-[var(--app-border-strong)]";
 
-function FieldLabel({ children }) {
-  return (
-    <span className="text-[10.5px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--app-text-muted)" }}>
-      {children}
-    </span>
-  );
-}
-
-function ColumnShell({ title, count, children }) {
-  return (
-    <div className="flex min-w-0 flex-col rounded-[12px] border" style={{ borderColor: "var(--app-border)", background: "var(--app-surface-2)" }}>
-      <div className="flex items-center justify-between border-b px-4 py-3" style={{ borderColor: "var(--app-border)" }}>
-        <span className="text-[12px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--app-text-muted)" }}>{title}</span>
-        <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "var(--app-surface)", color: "var(--app-text-body)", border: "1px solid var(--app-border)" }}>
-          {count}
-        </span>
-      </div>
-      <div className="flex flex-col gap-2.5 px-3.5 py-3.5">{children}</div>
-    </div>
-  );
-}
-
-function Card({ children }) {
-  return (
-    <div className="rounded-[10px] border px-3 py-2.5" style={{ borderColor: "var(--app-border)", background: "var(--app-surface)" }}>
-      {children}
-    </div>
-  );
-}
-
 function LinkedIssueChip({ issueImportKey, issuesByKey, onSelectIssue }) {
   if (!issueImportKey) return null;
   const issue = issuesByKey.get(issueImportKey);
@@ -112,7 +82,7 @@ function LinkedIssueChip({ issueImportKey, issuesByKey, onSelectIssue }) {
       style={{ background: "var(--app-surface-2)", color: "var(--app-text-body)", border: "1px solid var(--app-border)" }}
       title={issue.issue_title}
     >
-      {issue.jira_ticket || "Issue"} · {issue.issue_title.length > 34 ? `${issue.issue_title.slice(0, 34)}…` : issue.issue_title}
+      {issue.jira_ticket || "Issue"} · {issue.issue_title.length > 30 ? `${issue.issue_title.slice(0, 30)}…` : issue.issue_title}
     </button>
   );
 }
@@ -129,7 +99,7 @@ function PersonInput({ value, onChange, placeholder }) {
   );
 }
 
-function EditButtons({ onSave, onCancel, saving }) {
+function SaveCancel({ onSave, onCancel, saving }) {
   return (
     <div className="flex gap-2">
       <button
@@ -153,6 +123,16 @@ function EditButtons({ onSave, onCancel, saving }) {
   );
 }
 
+function CellLabel({ children }) {
+  return (
+    <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.08em] lg:hidden" style={{ color: "var(--app-text-muted)" }}>
+      {children}
+    </div>
+  );
+}
+
+const rowGrid = "grid gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1.25fr)_120px_minmax(0,1.05fr)]";
+
 export function MeetingSpaceView({
   issues,
   meetings,
@@ -174,24 +154,29 @@ export function MeetingSpaceView({
 
   const [digestDraft, setDigestDraft] = useState("");
   const [savingDigest, setSavingDigest] = useState(false);
-
   const [ownerFilter, setOwnerFilter] = useState("");
 
-  const [discussBody, setDiscussBody] = useState("");
-  const [discussIssueKey, setDiscussIssueKey] = useState("");
-  const [decisionType, setDecisionType] = useState("decision");
-  const [decisionBody, setDecisionBody] = useState("");
-  const [decisionOwner, setDecisionOwner] = useState("");
-  const [actionDescription, setActionDescription] = useState("");
-  const [actionOwner, setActionOwner] = useState("");
-  const [actionDueDate, setActionDueDate] = useState("");
-  const [actionIssueKey, setActionIssueKey] = useState("");
+  const [newTopicBody, setNewTopicBody] = useState("");
+  const [newTopicIssueKey, setNewTopicIssueKey] = useState("");
+  const [savingTopic, setSavingTopic] = useState(false);
 
-  const [savingColumn, setSavingColumn] = useState("");
-  const [editTarget, setEditTarget] = useState(null);
-  const [editFields, setEditFields] = useState({});
+  const [editTopicId, setEditTopicId] = useState(null);
+  const [editTopicBody, setEditTopicBody] = useState("");
+  const [editDecisionId, setEditDecisionId] = useState(null);
+  const [editDecisionText, setEditDecisionText] = useState("");
+  const [editDecisionOwner, setEditDecisionOwner] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+
+  const [actionRowNoteId, setActionRowNoteId] = useState(null);
+  const [rowActionText, setRowActionText] = useState("");
+  const [rowActionDue, setRowActionDue] = useState("");
+  const [savingRowAction, setSavingRowAction] = useState(false);
   const [togglingActionId, setTogglingActionId] = useState(null);
+
+  const [generalActionText, setGeneralActionText] = useState("");
+  const [generalActionOwner, setGeneralActionOwner] = useState("");
+  const [generalActionDue, setGeneralActionDue] = useState("");
+  const [savingGeneralAction, setSavingGeneralAction] = useState(false);
 
   const issuesByKey = useMemo(() => new Map(issues.map((issue) => [issue.issue_import_key, issue])), [issues]);
 
@@ -220,7 +205,9 @@ export function MeetingSpaceView({
 
   useEffect(() => {
     setDigestDraft(selectedMeeting?.digest || "");
-    setEditTarget(null);
+    setEditTopicId(null);
+    setEditDecisionId(null);
+    setActionRowNoteId(null);
     setError("");
   }, [selectedMeetingId]);
 
@@ -228,6 +215,18 @@ export function MeetingSpaceView({
     setMeetings((current) =>
       current.map((meeting) => (meeting.id === meetingId ? { ...meeting, ...patch(meeting) } : meeting))
     );
+  }
+
+  function replaceNote(note) {
+    patchMeetingInState(note.meeting_id, (meeting) => ({
+      notes: (meeting.notes || []).map((entry) => (entry.id === note.id ? note : entry))
+    }));
+  }
+
+  function replaceAction(action) {
+    patchMeetingInState(action.meeting_id, (meeting) => ({
+      action_items: (meeting.action_items || []).map((entry) => (entry.id === action.id ? action : entry))
+    }));
   }
 
   async function handleCreateMeeting(event) {
@@ -270,120 +269,108 @@ export function MeetingSpaceView({
     }
   }
 
-  async function addNote({ column, body, noteType, issueKey, owner }) {
-    if (!selectedMeeting) return;
-    setSavingColumn(column);
+  async function handleAddTopic(event) {
+    event.preventDefault();
+    if (!selectedMeeting || (!newTopicBody.trim() && !newTopicIssueKey)) return;
+    setSavingTopic(true);
     setError("");
     try {
       const payload = await postJson(`/api/meetings/${selectedMeeting.id}/notes`, {
-        body,
-        note_type: noteType,
-        issue_import_key: issueKey || null,
-        owner_name: owner || null,
+        body: newTopicBody,
+        note_type: "discussion",
+        issue_import_key: newTopicIssueKey || null,
         author_name: operatorName
       });
       patchMeetingInState(selectedMeeting.id, (meeting) => ({ notes: [...(meeting.notes || []), payload.note] }));
-      return true;
-    } catch (noteError) {
-      setError(describeFetchError(noteError, "Could not add the note."));
-      return false;
+      setNewTopicBody("");
+      setNewTopicIssueKey("");
+    } catch (topicError) {
+      setError(describeFetchError(topicError, "Could not add the topic."));
     } finally {
-      setSavingColumn("");
+      setSavingTopic(false);
     }
   }
 
-  async function handleAddDiscussion(event) {
-    event.preventDefault();
-    if (!discussBody.trim() && !discussIssueKey) return;
-    const ok = await addNote({ column: "discussed", body: discussBody, noteType: "discussion", issueKey: discussIssueKey });
-    if (ok) {
-      setDiscussBody("");
-      setDiscussIssueKey("");
+  async function handleSaveTopicBody(topic) {
+    setSavingEdit(true);
+    setError("");
+    try {
+      const payload = await patchJson(`/api/meetings/notes/${topic.id}`, { body: editTopicBody });
+      replaceNote(payload.note);
+      setEditTopicId(null);
+    } catch (editError) {
+      setError(describeFetchError(editError, "Could not save the topic."));
+    } finally {
+      setSavingEdit(false);
     }
   }
 
-  async function handleAddDecision(event) {
-    event.preventDefault();
-    if (!decisionBody.trim()) return;
-    const ok = await addNote({ column: "decisions", body: decisionBody, noteType: decisionType, owner: decisionOwner });
-    if (ok) {
-      setDecisionBody("");
-      setDecisionOwner("");
-      setDecisionType("decision");
+  async function handleSaveDecision(topic) {
+    setSavingEdit(true);
+    setError("");
+    try {
+      const payload = await patchJson(`/api/meetings/notes/${topic.id}`, {
+        decision: editDecisionText,
+        owner_name: editDecisionOwner,
+        actor_name: operatorName
+      });
+      replaceNote(payload.note);
+      setEditDecisionId(null);
+    } catch (editError) {
+      setError(describeFetchError(editError, "Could not save the decision."));
+    } finally {
+      setSavingEdit(false);
     }
   }
 
-  async function handleAddAction(event) {
-    event.preventDefault();
-    if (!selectedMeeting || !actionDescription.trim()) return;
-    setSavingColumn("actions");
+  async function handleAddRowAction(topic) {
+    if (!rowActionText.trim() || !selectedMeeting) return;
+    setSavingRowAction(true);
     setError("");
     try {
       const payload = await postJson(`/api/meetings/${selectedMeeting.id}/actions`, {
-        description: actionDescription,
-        owner_name: actionOwner,
-        due_date: actionDueDate || null,
-        issue_import_key: actionIssueKey || null,
+        description: rowActionText,
+        owner_name: topic.owner_name || "",
+        due_date: rowActionDue || null,
+        issue_import_key: topic.issue_import_key || null,
+        note_id: topic.id,
         actor_name: operatorName
       });
       patchMeetingInState(selectedMeeting.id, (meeting) => ({
         action_items: [...(meeting.action_items || []), payload.actionItem]
       }));
-      setActionDescription("");
-      setActionOwner("");
-      setActionDueDate("");
-      setActionIssueKey("");
+      setRowActionText("");
+      setRowActionDue("");
+      setActionRowNoteId(null);
     } catch (actionError) {
       setError(describeFetchError(actionError, "Could not add the action item."));
     } finally {
-      setSavingColumn("");
+      setSavingRowAction(false);
     }
   }
 
-  function startEdit(kind, item) {
-    setEditTarget({ kind, id: item.id });
-    if (kind === "note") {
-      setEditFields({ body: item.body || "", owner_name: item.owner_name || "", note_type: item.note_type });
-    } else {
-      setEditFields({
-        description: item.description || "",
-        owner_name: item.owner_name || "",
-        due_date: item.due_date || ""
-      });
-    }
-  }
-
-  async function handleSaveEdit() {
-    if (!editTarget || !selectedMeeting) return;
-    setSavingEdit(true);
+  async function handleAddGeneralAction(event) {
+    event.preventDefault();
+    if (!generalActionText.trim() || !selectedMeeting) return;
+    setSavingGeneralAction(true);
     setError("");
     try {
-      if (editTarget.kind === "note") {
-        const payload = await patchJson(`/api/meetings/notes/${editTarget.id}`, {
-          body: editFields.body,
-          note_type: editFields.note_type,
-          owner_name: editFields.owner_name
-        });
-        patchMeetingInState(selectedMeeting.id, (meeting) => ({
-          notes: (meeting.notes || []).map((note) => (note.id === payload.note.id ? payload.note : note))
-        }));
-      } else {
-        const payload = await patchJson(`/api/meetings/actions/${editTarget.id}`, {
-          description: editFields.description,
-          owner_name: editFields.owner_name,
-          due_date: editFields.due_date || ""
-        });
-        patchMeetingInState(selectedMeeting.id, (meeting) => ({
-          action_items: (meeting.action_items || []).map((item) =>
-            item.id === payload.actionItem.id ? payload.actionItem : item
-          )
-        }));
-      }
-      setEditTarget(null);
-    } catch (editError) {
-      setError(describeFetchError(editError, "Could not save the change."));
+      const payload = await postJson(`/api/meetings/${selectedMeeting.id}/actions`, {
+        description: generalActionText,
+        owner_name: generalActionOwner,
+        due_date: generalActionDue || null,
+        actor_name: operatorName
+      });
+      patchMeetingInState(selectedMeeting.id, (meeting) => ({
+        action_items: [...(meeting.action_items || []), payload.actionItem]
+      }));
+      setGeneralActionText("");
+      setGeneralActionOwner("");
+      setGeneralActionDue("");
+    } catch (actionError) {
+      setError(describeFetchError(actionError, "Could not add the action item."));
     } finally {
-      setSavingEdit(false);
+      setSavingGeneralAction(false);
     }
   }
 
@@ -394,11 +381,7 @@ export function MeetingSpaceView({
       const payload = await patchJson(`/api/meetings/actions/${item.id}`, {
         status: item.status === "done" ? "open" : "done"
       });
-      patchMeetingInState(item.meeting_id, (meeting) => ({
-        action_items: (meeting.action_items || []).map((entry) =>
-          entry.id === payload.actionItem.id ? payload.actionItem : entry
-        )
-      }));
+      replaceAction(payload.actionItem);
     } catch (toggleError) {
       setError(describeFetchError(toggleError, "Could not update the action item."));
     } finally {
@@ -407,20 +390,34 @@ export function MeetingSpaceView({
   }
 
   const notes = selectedMeeting?.notes || [];
-  const discussed = notes.filter((note) => DISCUSSION_TYPES.includes(note.note_type));
-  const decisions = notes.filter((note) => ["decision", "risk"].includes(note.note_type));
+  const topics = notes.filter((note) => DISCUSSION_TYPES.includes(note.note_type));
+  const legacyNotes = notes.filter((note) => ["decision", "risk"].includes(note.note_type));
   const actionItems = selectedMeeting?.action_items || [];
+  const actionsByNote = useMemo(() => {
+    const map = new Map();
+    for (const item of actionItems) {
+      if (!item.note_id) continue;
+      if (!map.has(item.note_id)) map.set(item.note_id, []);
+      map.get(item.note_id).push(item);
+    }
+    return map;
+  }, [actionItems]);
+  const generalActions = actionItems.filter((item) => !item.note_id);
 
-  const filteredDecisions = ownerFilter
-    ? decisions.filter((note) => (note.owner_name || "") === ownerFilter)
-    : decisions;
-  const filteredActions = ownerFilter
-    ? actionItems.filter((item) => (item.owner_name || "") === ownerFilter)
-    : actionItems;
+  const visibleTopics = ownerFilter
+    ? topics.filter(
+        (topic) =>
+          topic.owner_name === ownerFilter ||
+          (actionsByNote.get(topic.id) || []).some((item) => item.owner_name === ownerFilter)
+      )
+    : topics;
+  const visibleGeneralActions = ownerFilter
+    ? generalActions.filter((item) => item.owner_name === ownerFilter)
+    : generalActions;
 
   const ownersInMeeting = useMemo(() => {
     const names = [
-      ...decisions.map((note) => note.owner_name),
+      ...topics.map((topic) => topic.owner_name),
       ...actionItems.map((item) => item.owner_name)
     ];
     return [...new Set(names.filter(Boolean))].sort((a, b) => a.localeCompare(b));
@@ -429,6 +426,34 @@ export function MeetingSpaceView({
   const allOpenActions = meetings.flatMap((meeting) => meeting.action_items || []).filter((item) => item.status !== "done");
   const totalNotes = meetings.reduce((sum, meeting) => sum + (meeting.notes || []).length, 0);
   const isActive = selectedMeeting && selectedMeeting.id === activeMeetingId;
+
+  function renderActionChip(item) {
+    const done = item.status === "done";
+    const dueDays = daysUntil(item.due_date);
+    return (
+      <div key={item.id} className="flex items-start gap-2">
+        <input
+          type="checkbox"
+          checked={done}
+          disabled={togglingActionId === item.id}
+          onChange={() => handleToggleAction(item)}
+          className="mt-0.5 h-3.5 w-3.5 cursor-pointer"
+        />
+        <div className="min-w-0">
+          <span
+            className="text-[12px] leading-5"
+            style={{ color: done ? "var(--app-text-muted)" : "var(--app-text-body)", textDecoration: done ? "line-through" : "none" }}
+          >
+            {item.description}
+          </span>
+          <div className="text-[10.5px]" style={{ color: !done && dueDays !== null && dueDays < 0 ? "#842A42" : "var(--app-text-muted)" }}>
+            @{item.owner_name || "Unassigned"}
+            {item.due_date ? ` · ${dueDays < 0 && !done ? `${Math.abs(dueDays)}d overdue` : formatDateLabel(item.due_date)}` : ""}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex max-w-[1280px] flex-col gap-6">
@@ -573,7 +598,7 @@ export function MeetingSpaceView({
 
               {isActive ? (
                 <p className="mt-2 text-[12px]" style={{ color: "var(--app-text-muted)" }}>
-                  This meeting is live: the Issues view now shows an "Add to meeting" action on every row.
+                  This meeting is live: the Issues view shows an "Add to meeting" action on every row.
                 </p>
               ) : null}
 
@@ -597,252 +622,251 @@ export function MeetingSpaceView({
               </div>
             </section>
 
-            <div className="grid gap-4 lg:grid-cols-3">
-              <ColumnShell title="Discussed" count={discussed.length}>
-                {discussed.map((note) =>
-                  editTarget?.kind === "note" && editTarget.id === note.id ? (
-                    <Card key={note.id}>
-                      <textarea
-                        value={editFields.body}
-                        onChange={(event) => setEditFields((current) => ({ ...current, body: event.target.value }))}
-                        rows={3}
-                        className={`${inputClass} w-full leading-5`}
-                      />
-                      <div className="mt-2">
-                        <EditButtons onSave={handleSaveEdit} onCancel={() => setEditTarget(null)} saving={savingEdit} />
-                      </div>
-                    </Card>
-                  ) : (
-                    <Card key={note.id}>
-                      <LinkedIssueChip issueImportKey={note.issue_import_key} issuesByKey={issuesByKey} onSelectIssue={onSelectIssue} />
-                      <div className="mt-1.5 whitespace-pre-wrap text-[12.5px] leading-5" style={{ color: "var(--app-text-body)" }}>{note.body}</div>
-                      <div className="mt-1.5 flex items-center justify-between text-[11px]" style={{ color: "var(--app-text-muted)" }}>
-                        <span>{note.author_name || "Unattributed"}</span>
-                        <button type="button" onClick={() => startEdit("note", note)} className="font-semibold underline underline-offset-2">
-                          Edit
-                        </button>
-                      </div>
-                    </Card>
-                  )
-                )}
-                {!discussed.length ? (
-                  <div className="text-[12px]" style={{ color: "var(--app-text-muted)" }}>
-                    Nothing raised yet. Add items here or from the Issues view while this meeting is live.
+            <section className="cs-panel overflow-hidden">
+              <div className={`${rowGrid} hidden border-b px-5 py-3 lg:grid`} style={{ borderColor: "var(--app-border)", background: "var(--app-surface-2)" }}>
+                {["Discussed", "Decision", "Owner", "Action items"].map((label) => (
+                  <div key={label} className="text-[11px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--app-text-muted)" }}>
+                    {label}
                   </div>
-                ) : null}
+                ))}
+              </div>
 
-                <form onSubmit={handleAddDiscussion} className="mt-1 flex flex-col gap-2 border-t pt-3" style={{ borderColor: "var(--app-border)" }}>
-                  <select value={discussIssueKey} onChange={(event) => setDiscussIssueKey(event.target.value)} className={inputClass}>
-                    <option value="">No linked issue</option>
-                    {issues.map((issue) => (
-                      <option key={issue.issue_import_key} value={issue.issue_import_key}>{issue.issue_title}</option>
-                    ))}
-                  </select>
-                  <textarea
-                    value={discussBody}
-                    onChange={(event) => setDiscussBody(event.target.value)}
-                    rows={2}
-                    placeholder="What was discussed?"
-                    className={`${inputClass} leading-5`}
-                  />
-                  <button
-                    type="submit"
-                    disabled={savingColumn === "discussed" || (!discussBody.trim() && !discussIssueKey)}
-                    className="rounded-[8px] border px-2.5 py-1.5 text-[12px] font-semibold disabled:opacity-40"
-                    style={{ borderColor: "var(--app-border)", background: "var(--app-surface)", color: "var(--app-text-body)" }}
-                  >
-                    {savingColumn === "discussed" ? "Adding…" : "+ Add discussion point"}
-                  </button>
-                </form>
-              </ColumnShell>
+              <div className="divide-y" style={{ borderColor: "var(--app-border)" }}>
+                {visibleTopics.length ? (
+                  visibleTopics.map((topic) => {
+                    const rowActions = actionsByNote.get(topic.id) || [];
+                    const editingTopic = editTopicId === topic.id;
+                    const editingDecision = editDecisionId === topic.id;
+                    const addingAction = actionRowNoteId === topic.id;
 
-              <ColumnShell title="Decisions & risks" count={filteredDecisions.length}>
-                {filteredDecisions.map((note) =>
-                  editTarget?.kind === "note" && editTarget.id === note.id ? (
-                    <Card key={note.id}>
-                      <select
-                        value={editFields.note_type}
-                        onChange={(event) => setEditFields((current) => ({ ...current, note_type: event.target.value }))}
-                        className={`${inputClass} w-full`}
-                      >
-                        <option value="decision">Decision</option>
-                        <option value="risk">Risk</option>
-                      </select>
-                      <textarea
-                        value={editFields.body}
-                        onChange={(event) => setEditFields((current) => ({ ...current, body: event.target.value }))}
-                        rows={3}
-                        className={`${inputClass} mt-2 w-full leading-5`}
-                      />
-                      <div className="mt-2">
-                        <PersonInput
-                          value={editFields.owner_name}
-                          onChange={(value) => setEditFields((current) => ({ ...current, owner_name: value }))}
-                          placeholder="Tag an owner"
-                        />
-                      </div>
-                      <div className="mt-2">
-                        <EditButtons onSave={handleSaveEdit} onCancel={() => setEditTarget(null)} saving={savingEdit} />
-                      </div>
-                    </Card>
-                  ) : (
-                    <Card key={note.id}>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
-                          style={note.note_type === "risk" ? { background: "#F8DAE2", color: "#842A42" } : { background: "#DDF1E4", color: "#1F6B44" }}
-                        >
-                          {note.note_type === "risk" ? "Risk" : "Decision"}
-                        </span>
-                        {note.owner_name ? (
-                          <span className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold" style={{ background: "var(--app-surface-2)", color: "var(--app-text-body)", border: "1px solid var(--app-border)" }}>
-                            @{note.owner_name}
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-1.5 whitespace-pre-wrap text-[12.5px] leading-5" style={{ color: "var(--app-text-body)" }}>{note.body}</div>
-                      <div className="mt-1.5 flex items-center justify-between text-[11px]" style={{ color: "var(--app-text-muted)" }}>
-                        <span>{note.author_name || "Unattributed"}</span>
-                        <button type="button" onClick={() => startEdit("note", note)} className="font-semibold underline underline-offset-2">
-                          Edit
-                        </button>
-                      </div>
-                    </Card>
-                  )
-                )}
-                {!filteredDecisions.length ? (
-                  <div className="text-[12px]" style={{ color: "var(--app-text-muted)" }}>
-                    {ownerFilter ? "Nothing for this owner." : "No decisions or risks captured yet."}
-                  </div>
-                ) : null}
+                    return (
+                      <div key={topic.id} className={`${rowGrid} px-5 py-4`}>
+                        <div className="min-w-0">
+                          <CellLabel>Discussed</CellLabel>
+                          <LinkedIssueChip issueImportKey={topic.issue_import_key} issuesByKey={issuesByKey} onSelectIssue={onSelectIssue} />
+                          {editingTopic ? (
+                            <div className="mt-1.5">
+                              <textarea
+                                value={editTopicBody}
+                                onChange={(event) => setEditTopicBody(event.target.value)}
+                                rows={3}
+                                className={`${inputClass} w-full leading-5`}
+                              />
+                              <div className="mt-2">
+                                <SaveCancel onSave={() => handleSaveTopicBody(topic)} onCancel={() => setEditTopicId(null)} saving={savingEdit} />
+                              </div>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="mt-1.5 whitespace-pre-wrap text-[13px] leading-5" style={{ color: "var(--app-text-body)" }}>{topic.body}</div>
+                              <div className="mt-1 flex items-center gap-2 text-[11px]" style={{ color: "var(--app-text-muted)" }}>
+                                <span>{topic.author_name || "Unattributed"}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditTopicId(topic.id);
+                                    setEditTopicBody(topic.body || "");
+                                  }}
+                                  className="font-semibold underline underline-offset-2"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </div>
 
-                <form onSubmit={handleAddDecision} className="mt-1 flex flex-col gap-2 border-t pt-3" style={{ borderColor: "var(--app-border)" }}>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select value={decisionType} onChange={(event) => setDecisionType(event.target.value)} className={inputClass}>
-                      <option value="decision">Decision</option>
-                      <option value="risk">Risk</option>
-                    </select>
-                    <PersonInput value={decisionOwner} onChange={setDecisionOwner} placeholder="Tag owner" />
-                  </div>
-                  <textarea
-                    value={decisionBody}
-                    onChange={(event) => setDecisionBody(event.target.value)}
-                    rows={2}
-                    placeholder="What was decided, or what risk was raised?"
-                    className={`${inputClass} leading-5`}
-                  />
-                  <button
-                    type="submit"
-                    disabled={savingColumn === "decisions" || !decisionBody.trim()}
-                    className="rounded-[8px] border px-2.5 py-1.5 text-[12px] font-semibold disabled:opacity-40"
-                    style={{ borderColor: "var(--app-border)", background: "var(--app-surface)", color: "var(--app-text-body)" }}
-                  >
-                    {savingColumn === "decisions" ? "Adding…" : "+ Add decision / risk"}
-                  </button>
-                </form>
-              </ColumnShell>
+                        <div className="min-w-0">
+                          <CellLabel>Decision</CellLabel>
+                          {editingDecision ? (
+                            <div>
+                              <textarea
+                                value={editDecisionText}
+                                onChange={(event) => setEditDecisionText(event.target.value)}
+                                rows={3}
+                                placeholder="What did the group decide on this?"
+                                className={`${inputClass} w-full leading-5`}
+                              />
+                              <div className="mt-2">
+                                <PersonInput value={editDecisionOwner} onChange={setEditDecisionOwner} placeholder="Tag decision owner" />
+                              </div>
+                              <div className="mt-2">
+                                <SaveCancel onSave={() => handleSaveDecision(topic)} onCancel={() => setEditDecisionId(null)} saving={savingEdit} />
+                              </div>
+                            </div>
+                          ) : topic.decision ? (
+                            <div>
+                              <div className="whitespace-pre-wrap text-[13px] leading-5" style={{ color: "var(--app-text-body)" }}>{topic.decision}</div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditDecisionId(topic.id);
+                                  setEditDecisionText(topic.decision || "");
+                                  setEditDecisionOwner(topic.owner_name || "");
+                                }}
+                                className="mt-1 text-[11px] font-semibold underline underline-offset-2"
+                                style={{ color: "var(--app-text-muted)" }}
+                              >
+                                Edit
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditDecisionId(topic.id);
+                                setEditDecisionText("");
+                                setEditDecisionOwner(topic.owner_name || "");
+                              }}
+                              className="rounded-[8px] border border-dashed px-2.5 py-1.5 text-[12px] font-semibold"
+                              style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-muted)" }}
+                            >
+                              + Add decision
+                            </button>
+                          )}
+                        </div>
 
-              <ColumnShell title="Action items" count={filteredActions.length}>
-                {filteredActions.map((item) => {
-                  const done = item.status === "done";
-                  const dueDays = daysUntil(item.due_date);
-                  return editTarget?.kind === "action" && editTarget.id === item.id ? (
-                    <Card key={item.id}>
-                      <input
-                        value={editFields.description}
-                        onChange={(event) => setEditFields((current) => ({ ...current, description: event.target.value }))}
-                        className={`${inputClass} w-full`}
-                      />
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        <PersonInput
-                          value={editFields.owner_name}
-                          onChange={(value) => setEditFields((current) => ({ ...current, owner_name: value }))}
-                          placeholder="Owner"
-                        />
-                        <input
-                          type="date"
-                          value={editFields.due_date}
-                          onChange={(event) => setEditFields((current) => ({ ...current, due_date: event.target.value }))}
-                          className={inputClass}
-                        />
-                      </div>
-                      <div className="mt-2">
-                        <EditButtons onSave={handleSaveEdit} onCancel={() => setEditTarget(null)} saving={savingEdit} />
-                      </div>
-                    </Card>
-                  ) : (
-                    <Card key={item.id}>
-                      <div className="flex items-start gap-2.5">
-                        <input
-                          type="checkbox"
-                          checked={done}
-                          disabled={togglingActionId === item.id}
-                          onChange={() => handleToggleAction(item)}
-                          className="mt-0.5 h-4 w-4 cursor-pointer"
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div
-                            className="text-[12.5px] font-semibold leading-5"
-                            style={{ color: done ? "var(--app-text-muted)" : "var(--app-text)", textDecoration: done ? "line-through" : "none" }}
-                          >
-                            {item.description}
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]" style={{ color: "var(--app-text-muted)" }}>
-                            <span>@{item.owner_name || "Unassigned"}</span>
-                            <span>·</span>
-                            <span style={{ color: !done && dueDays !== null && dueDays < 0 ? "#842A42" : undefined }}>
-                              {done
-                                ? "Done"
-                                : item.due_date
-                                  ? dueDays < 0
-                                    ? `${Math.abs(dueDays)}d overdue`
-                                    : `Due ${formatDateLabel(item.due_date)}`
-                                  : "No due date"}
+                        <div className="min-w-0">
+                          <CellLabel>Owner</CellLabel>
+                          {topic.owner_name ? (
+                            <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: "var(--app-surface-2)", color: "var(--app-text-body)", border: "1px solid var(--app-border)" }}>
+                              @{topic.owner_name}
                             </span>
-                            <LinkedIssueChip issueImportKey={item.issue_import_key} issuesByKey={issuesByKey} onSelectIssue={onSelectIssue} />
+                          ) : (
+                            <span className="text-[12px]" style={{ color: "var(--app-text-muted)" }}>—</span>
+                          )}
+                        </div>
+
+                        <div className="min-w-0">
+                          <CellLabel>Action items</CellLabel>
+                          <div className="flex flex-col gap-2">
+                            {rowActions.map(renderActionChip)}
+                            {addingAction ? (
+                              <div className="flex flex-col gap-2">
+                                <input
+                                  value={rowActionText}
+                                  onChange={(event) => setRowActionText(event.target.value)}
+                                  onKeyDown={(event) => {
+                                    if (event.key === "Enter") {
+                                      event.preventDefault();
+                                      handleAddRowAction(topic);
+                                    }
+                                  }}
+                                  placeholder="What needs to happen?"
+                                  className={inputClass}
+                                  autoFocus
+                                />
+                                <input type="date" value={rowActionDue} onChange={(event) => setRowActionDue(event.target.value)} className={inputClass} />
+                                <SaveCancel
+                                  onSave={() => handleAddRowAction(topic)}
+                                  onCancel={() => {
+                                    setActionRowNoteId(null);
+                                    setRowActionText("");
+                                    setRowActionDue("");
+                                  }}
+                                  saving={savingRowAction}
+                                />
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setActionRowNoteId(topic.id)}
+                                className="self-start rounded-[8px] border border-dashed px-2 py-1 text-[11px] font-semibold"
+                                style={{ borderColor: "var(--app-border-strong)", color: "var(--app-text-muted)" }}
+                              >
+                                + Action
+                              </button>
+                            )}
                           </div>
                         </div>
-                        <button type="button" onClick={() => startEdit("action", item)} className="shrink-0 text-[11px] font-semibold underline underline-offset-2" style={{ color: "var(--app-text-muted)" }}>
-                          Edit
-                        </button>
                       </div>
-                    </Card>
-                  );
-                })}
-                {!filteredActions.length ? (
-                  <div className="text-[12px]" style={{ color: "var(--app-text-muted)" }}>
-                    {ownerFilter ? "Nothing for this owner." : "No action items yet."}
+                    );
+                  })
+                ) : (
+                  <div className="px-5 py-6 text-[13px]" style={{ color: "var(--app-text-muted)" }}>
+                    {ownerFilter ? "Nothing for this owner in this meeting." : "No topics yet. Add one below, or raise issues from the Issues view while this meeting is live."}
                   </div>
-                ) : null}
+                )}
+              </div>
 
-                <form onSubmit={handleAddAction} className="mt-1 flex flex-col gap-2 border-t pt-3" style={{ borderColor: "var(--app-border)" }}>
-                  <input
-                    value={actionDescription}
-                    onChange={(event) => setActionDescription(event.target.value)}
-                    placeholder="What needs to happen?"
-                    className={inputClass}
-                  />
-                  <div className="grid grid-cols-2 gap-2">
-                    <PersonInput value={actionOwner} onChange={setActionOwner} placeholder="Owner" />
-                    <input type="date" value={actionDueDate} onChange={(event) => setActionDueDate(event.target.value)} className={inputClass} />
+              <form onSubmit={handleAddTopic} className="flex flex-wrap items-center gap-2 border-t px-5 py-4" style={{ borderColor: "var(--app-border)", background: "var(--app-surface-2)" }}>
+                <select value={newTopicIssueKey} onChange={(event) => setNewTopicIssueKey(event.target.value)} className={`${inputClass} max-w-[240px]`}>
+                  <option value="">No linked issue</option>
+                  {issues.map((issue) => (
+                    <option key={issue.issue_import_key} value={issue.issue_import_key}>{issue.issue_title}</option>
+                  ))}
+                </select>
+                <input
+                  value={newTopicBody}
+                  onChange={(event) => setNewTopicBody(event.target.value)}
+                  placeholder="What was discussed?"
+                  className={`${inputClass} min-w-[200px] flex-1`}
+                />
+                <button
+                  type="submit"
+                  disabled={savingTopic || (!newTopicBody.trim() && !newTopicIssueKey)}
+                  className="rounded-[8px] px-3 py-1.5 text-[12px] font-semibold text-[#FAFAF7] disabled:opacity-40"
+                  style={{ background: "var(--app-sidebar)" }}
+                >
+                  {savingTopic ? "Adding…" : "+ Add topic"}
+                </button>
+              </form>
+            </section>
+
+            <section className="cs-panel px-5 py-4">
+              <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--app-text-muted)" }}>
+                General action items · {visibleGeneralActions.filter((item) => item.status !== "done").length} open
+              </h3>
+              <div className="mt-3 flex flex-col gap-2">
+                {visibleGeneralActions.length ? (
+                  visibleGeneralActions.map(renderActionChip)
+                ) : (
+                  <div className="text-[12px]" style={{ color: "var(--app-text-muted)" }}>
+                    {ownerFilter ? "Nothing for this owner." : "No meeting-level action items."}
                   </div>
-                  <select value={actionIssueKey} onChange={(event) => setActionIssueKey(event.target.value)} className={inputClass}>
-                    <option value="">No linked issue</option>
-                    {issues.map((issue) => (
-                      <option key={issue.issue_import_key} value={issue.issue_import_key}>{issue.issue_title}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="submit"
-                    disabled={savingColumn === "actions" || !actionDescription.trim()}
-                    className="rounded-[8px] border px-2.5 py-1.5 text-[12px] font-semibold disabled:opacity-40"
-                    style={{ borderColor: "var(--app-border)", background: "var(--app-surface)", color: "var(--app-text-body)" }}
-                  >
-                    {savingColumn === "actions" ? "Adding…" : "+ Add action item"}
-                  </button>
-                </form>
-              </ColumnShell>
-            </div>
+                )}
+              </div>
+              <form onSubmit={handleAddGeneralAction} className="mt-3 flex flex-wrap items-center gap-2 border-t pt-3" style={{ borderColor: "var(--app-border)" }}>
+                <input
+                  value={generalActionText}
+                  onChange={(event) => setGeneralActionText(event.target.value)}
+                  placeholder="Action item not tied to a topic"
+                  className={`${inputClass} min-w-[200px] flex-1`}
+                />
+                <PersonInput value={generalActionOwner} onChange={setGeneralActionOwner} placeholder="Owner" />
+                <input type="date" value={generalActionDue} onChange={(event) => setGeneralActionDue(event.target.value)} className={inputClass} />
+                <button
+                  type="submit"
+                  disabled={savingGeneralAction || !generalActionText.trim()}
+                  className="rounded-[8px] border px-3 py-1.5 text-[12px] font-semibold disabled:opacity-40"
+                  style={{ borderColor: "var(--app-border)", background: "var(--app-surface-2)", color: "var(--app-text-body)" }}
+                >
+                  {savingGeneralAction ? "Adding…" : "+ Add"}
+                </button>
+              </form>
+            </section>
+
+            {legacyNotes.length ? (
+              <section className="cs-panel px-5 py-4">
+                <h3 className="text-[13px] font-semibold uppercase tracking-[0.08em]" style={{ color: "var(--app-text-muted)" }}>
+                  Standalone decisions & risks (older format)
+                </h3>
+                <div className="mt-3 flex flex-col gap-2">
+                  {legacyNotes.map((note) => (
+                    <div key={note.id} className="flex flex-wrap items-start gap-2 text-[12.5px]" style={{ color: "var(--app-text-body)" }}>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10.5px] font-semibold"
+                        style={note.note_type === "risk" ? { background: "#F8DAE2", color: "#842A42" } : { background: "#DDF1E4", color: "#1F6B44" }}
+                      >
+                        {note.note_type === "risk" ? "Risk" : "Decision"}
+                      </span>
+                      <span className="min-w-0 flex-1 whitespace-pre-wrap leading-5">{note.body}</span>
+                      {note.owner_name ? <span style={{ color: "var(--app-text-muted)" }}>@{note.owner_name}</span> : null}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
         ) : (
           <section className="cs-panel px-6 py-8 text-sm" style={{ color: "var(--app-text-muted)" }}>

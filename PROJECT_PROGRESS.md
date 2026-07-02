@@ -784,6 +784,37 @@ Known follow-ups:
 - deeper assignee-based views (a cross-meeting "my action items" surface) are planned as the next iteration
 - the live-meeting flag is per browser; a shared team-wide live flag would need a small schema addition
 
+## Latest Meeting Board: Kanban Replaced With Topic Table
+
+Date: 2026-07-02
+Status: completed
+
+Why: the kanban columns had no relationship between what was discussed and what was decided. The board is now a table where each discussed topic is one row and its decision, owner, and action items sit on the same line.
+
+What changed:
+
+- the meeting board is now a table with columns Discussed / Decision / Owner / Action items; every topic raised (from the Issues view or the add-topic form) becomes a row
+- decisions are captured on the topic row itself via `+ Add decision`, with an owner tag; saving a decision on an issue-linked topic also writes a `Decision: ...` entry into that issue's history with the meeting link
+- action items can be added directly on a row (`+ Action`) and inherit the topic's issue link and owner; meeting-level items that belong to no topic live in a `General action items` section below
+- the owner filter now filters rows by topic owner or any of the row's action owners
+- old-format standalone decision/risk notes still render in a compact legacy section so nothing captured earlier is lost
+- the overview recap's Decisions column now includes decisions captured on topic rows (with owner) alongside legacy notes
+
+Files created:
+
+- [supabase/migrations/2026-07-02_meeting_topics.sql](/Users/akashlenin/Rag%202.0/cs-dashboard/supabase/migrations/2026-07-02_meeting_topics.sql) (adds `decision` to notes and `note_id` to action items)
+
+Files modified:
+
+- [backend/src/lib/meeting-data.js](/Users/akashlenin/Rag%202.0/cs-dashboard/backend/src/lib/meeting-data.js)
+- [frontend/src/components/MeetingSpace.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/components/MeetingSpace.jsx) (table rewrite)
+- [frontend/src/components/OverviewPanels.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/components/OverviewPanels.jsx)
+- [STATUS.md](/Users/akashlenin/Rag%202.0/cs-dashboard/STATUS.md)
+
+Setup required:
+
+- run [2026-07-02_meeting_topics.sql](/Users/akashlenin/Rag%202.0/cs-dashboard/supabase/migrations/2026-07-02_meeting_topics.sql) in Supabase, then restart the backend. Decisions and per-row actions stay disabled with a clear message until it runs.
+
 ## Useful Paths
 
 - App repo: [cs-dashboard](/Users/akashlenin/Rag%202.0/cs-dashboard)

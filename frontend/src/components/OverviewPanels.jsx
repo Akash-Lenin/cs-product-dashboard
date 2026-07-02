@@ -66,7 +66,12 @@ export function LastMeetingCard({ meeting, onOpenMeetings }) {
 
   const notes = meeting.notes || [];
   const discussed = notes.filter((note) => !["decision", "risk"].includes(note.note_type));
-  const decisions = notes.filter((note) => ["decision", "risk"].includes(note.note_type));
+  const decisions = [
+    ...discussed
+      .filter((note) => note.decision)
+      .map((note) => ({ id: `topic-${note.id}`, note_type: "decision", body: note.decision, owner_name: note.owner_name })),
+    ...notes.filter((note) => ["decision", "risk"].includes(note.note_type))
+  ];
   const actionItems = meeting.action_items || [];
   const openActions = actionItems.filter((item) => item.status !== "done");
 
@@ -116,6 +121,9 @@ export function LastMeetingCard({ meeting, onOpenMeetings }) {
                   </span>
                   <span className="line-clamp-2 text-[12.5px] leading-5" style={{ color: "var(--app-text-body)" }}>{note.body}</span>
                 </div>
+                {note.owner_name ? (
+                  <div className="mt-1 text-[11px]" style={{ color: "var(--app-text-muted)" }}>@{note.owner_name}</div>
+                ) : null}
               </div>
             ))
           ) : (
