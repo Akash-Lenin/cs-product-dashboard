@@ -76,7 +76,7 @@ function accountSummary(issue) {
   return (issue.accounts || []).map((account) => account.accountName).join(", ") || issue.account_name_raw || "No account";
 }
 
-const ATTENTION_PROFILES = {
+export const ATTENTION_PROFILES = {
   operator: {
     label: "Operator",
     description: "Execution focus: overdue stages, blockers, missing owners, and stale updates rank highest.",
@@ -117,13 +117,13 @@ const ATTENTION_PROFILES = {
 
 const STALE_THRESHOLD_OPTIONS = [7, 14, 21, 30];
 
-function isAttentionSnoozed(issue) {
+export function isAttentionSnoozed(issue) {
   if (!issue.attention_snoozed_until) return false;
   const days = daysUntil(issue.attention_snoozed_until);
   return days !== null && days >= 0;
 }
 
-function buildAttentionSignals(issue, weights, staleThresholdDays) {
+export function buildAttentionSignals(issue, weights, staleThresholdDays) {
   const signals = [];
   const stageDays = daysUntil(issue.stage_due_date);
   const etaDays = daysUntil(issue.resolution_eta);

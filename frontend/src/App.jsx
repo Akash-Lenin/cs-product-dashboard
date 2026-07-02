@@ -8,8 +8,12 @@ import { IssueTable } from "./components/IssueTable.jsx";
 import { NewIssueModal } from "./components/NewIssueModal.jsx";
 import { SummaryCards } from "./components/SummaryCards.jsx";
 import { MeetingSpaceView } from "./components/MeetingSpace.jsx";
+import { DueThisWeekPanel, LastMeetingCard } from "./components/OverviewPanels.jsx";
 import { RoleViewsView } from "./components/RoleViews.jsx";
 import {
+  ATTENTION_PROFILES,
+  buildAttentionSignals,
+  isAttentionSnoozed,
   NeedsAttentionView,
   PendingView,
   RecentlyAddedView
@@ -94,12 +98,29 @@ function initialsFromName(name) {
   return words.map((word) => word[0]).join("").toUpperCase();
 }
 
-function getSummary(issues) {
+function daysUntilDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  return Math.round((target.getTime() - startOfToday.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function getSummary(issues, meetings) {
+  const active = issues.filter((issue) => issue.current_status !== "Released");
   return {
     totalIssues: issues.length,
-    highPriority: issues.filter((issue) => issue.priority === "High").length,
     atRisk: issues.filter((issue) => issue.health === "Red" || issue.health === "Amber").length,
-    released: issues.filter((issue) => issue.current_status === "Released").length,
+    overdueStages: active.filter((issue) => {
+      const days = daysUntilDate(issue.stage_due_date);
+      return days !== null && days < 0;
+    }).length,
+    openActionItems: meetings
+      .flatMap((meeting) => meeting.action_items || [])
+      .filter((item) => item.status !== "done").length,
     totalAcv: issues.reduce((sum, issue) => sum + Number(issue.acv || 0), 0)
   };
 }
@@ -279,6 +300,7 @@ export default function App() {
   const [view, setView] = useState("overview");
   const [theme, setTheme] = useState(() => window.localStorage.getItem("cs-dashboard-theme") || "light");
   const [allIssues, setAllIssues] = useState([]);
+  const [meetings, setMeetings] = useState([]);
   const [deletedIssues, setDeletedIssues] = useState([]);
   const [jiraConfig, setJiraConfig] = useState({ jiraBaseUrl: "", jiraPrdfCreateUrl: "", jiraProjectKey: "" });
   const [selectedIssue, setSelectedIssue] = useState(null);
@@ -338,6 +360,13 @@ export default function App() {
       setJiraConfig(payload || {});
     } catch {
       setJiraConfig({ jiraBaseUrl: "", jiraPrdfCreateUrl: "", jiraProjectKey: "" });
+    }
+
+    try {
+      const payload = await fetchJson("/api/meetings");
+      setMeetings(payload.meetings || []);
+    } catch {
+      setMeetings([]);
     }
   }
 
@@ -481,20 +510,23 @@ export default function App() {
     });
   }, [filteredIssues]);
 
-  const summary = useMemo(() => getSummary(allIssues), [allIssues]);
+  const summary = useMemo(() => getSummary(allIssues, meetings), [allIssues, meetings]);
 
   const needsAttention = useMemo(() => {
-    return [...allIssues]
-      .filter((issue) => issue.health === "Red" || issue.priority === "High")
-      .sort((left, right) => {
-        return (
-          healthRank(left.health) - healthRank(right.health) ||
-          priorityRank(left.priority) - priorityRank(right.priority) ||
-          Number(right.acv || 0) - Number(left.acv || 0)
-        );
-      })
+    const storedMode = window.localStorage.getItem("cs-attention-mode") || "operator";
+    const profile = ATTENTION_PROFILES[storedMode] || ATTENTION_PROFILES.operator;
+    const storedThreshold = Number(window.localStorage.getItem("cs-attention-stale-days"));
+    const staleThreshold = [7, 14, 21, 30].includes(storedThreshold) ? storedThreshold : 14;
+
+    return allIssues
+      .filter((issue) => !isAttentionSnoozed(issue))
+      .map((issue) => ({ issue, ...buildAttentionSignals(issue, profile.weights, staleThreshold) }))
+      .filter((entry) => entry.score > 0)
+      .sort((left, right) => right.score - left.score || Number(right.issue.acv || 0) - Number(left.issue.acv || 0))
       .slice(0, 6);
   }, [allIssues]);
+
+  const latestMeeting = meetings[0] || null;
 
   const statusDistribution = useMemo(() => {
     const counts = statusOrder.map((status) => ({
@@ -507,13 +539,6 @@ export default function App() {
     return counts.map((entry) => ({ ...entry, percent: (entry.count / maxCount) * 100 }));
   }, [allIssues]);
 
-  const discussedIssues = useMemo(() => {
-    return [...allIssues]
-      .filter((issue) => issue.meeting_notes)
-      .sort((left, right) => {
-        return healthRank(left.health) - healthRank(right.health) || Number(right.acv || 0) - Number(left.acv || 0);
-      });
-  }, [allIssues]);
 
   async function handleIssueSave(issueImportKey, updates) {
     setSavingIssue(true);
@@ -777,7 +802,7 @@ export default function App() {
               { key: "issues", label: "Issues", icon: <IssuesIcon />, count: allIssues.length },
               { key: "pending", label: "Pending", icon: <QueueIcon />, count: allIssues.filter((issue) => issue.current_status !== "Released").length },
               { key: "attention", label: "Needs attention", icon: <AlertIcon />, count: needsAttention.length },
-              { key: "meetings", label: "Meeting space", icon: <MeetingIcon />, count: discussedIssues.length },
+              { key: "meetings", label: "Meeting space", icon: <MeetingIcon />, count: meetings.length },
               { key: "recent", label: "Recently added", icon: <SparkIcon />, count: null },
               { key: "roles", label: "Role views", icon: <RolesIcon />, count: null },
               { key: "trash", label: "Review bin", icon: <TrashIcon />, count: deletedIssues.length }
@@ -885,11 +910,11 @@ export default function App() {
                     <div className="cs-panel-header">
                       <div>
                         <h2 className="cs-panel-title">Needs attention</h2>
-                        <p className="cs-panel-subtitle">Red-health or high-priority, most at-risk first</p>
+                        <p className="cs-panel-subtitle">Weighted by risk, urgency, and follow-through; snoozed items excluded</p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => setView("issues")}
+                        onClick={() => setView("attention")}
                         className="cs-link-button"
                       >
                         View all
@@ -897,7 +922,7 @@ export default function App() {
                       </button>
                     </div>
                     <div>
-                      {needsAttention.map((issue) => (
+                      {needsAttention.map(({ issue, signals }) => (
                         <button
                           key={issue.issue_import_key}
                           type="button"
@@ -910,7 +935,10 @@ export default function App() {
                           <div className="min-w-0 flex-1">
                             <div className="cs-row-title">{issue.issue_title}</div>
                             <div className="cs-row-subtitle">
-                              {(issue.accounts || []).map((account) => account.accountName).join(", ")}
+                              {[
+                                (issue.accounts || []).map((account) => account.accountName).join(", "),
+                                signals.slice(0, 2).map((signal) => signal.label).join(", ")
+                              ].filter(Boolean).join(" · ")}
                             </div>
                           </div>
                           <span
@@ -925,69 +953,37 @@ export default function App() {
                     </div>
                   </section>
 
-                  <section className="cs-panel cs-status-card">
-                    <h2 className="cs-panel-title">By status</h2>
-                    <p className="cs-panel-subtitle">Where issues sit in the pipeline</p>
-                    <div className="cs-status-list">
-                      {statusDistribution.map((entry) => (
-                        <div key={entry.label}>
-                          <div className="cs-status-label">
-                            <span className="inline-flex items-center gap-2">
-                              <span className="cs-dot" style={{ backgroundColor: entry.color }} />
-                              {entry.label}
-                            </span>
-                            <span>{entry.count}</span>
+                  <div className="flex min-w-0 flex-col gap-6">
+                    <section className="cs-panel cs-status-card">
+                      <h2 className="cs-panel-title">By status</h2>
+                      <p className="cs-panel-subtitle">Where issues sit in the pipeline</p>
+                      <div className="cs-status-list">
+                        {statusDistribution.map((entry) => (
+                          <div key={entry.label}>
+                            <div className="cs-status-label">
+                              <span className="inline-flex items-center gap-2">
+                                <span className="cs-dot" style={{ backgroundColor: entry.color }} />
+                                {entry.label}
+                              </span>
+                              <span>{entry.count}</span>
+                            </div>
+                            <div className="cs-status-track">
+                              <div className="cs-status-fill" style={{ width: `${entry.percent}%`, backgroundColor: entry.color }} />
+                            </div>
                           </div>
-                          <div className="cs-status-track">
-                            <div className="cs-status-fill" style={{ width: `${entry.percent}%`, backgroundColor: entry.color }} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
+                        ))}
+                      </div>
+                    </section>
+
+                    <DueThisWeekPanel
+                      issues={allIssues}
+                      onSelectIssue={setSelectedIssue}
+                      onOpenPending={() => setView("pending")}
+                    />
+                  </div>
                 </div>
 
-                <section className="cs-panel">
-                  <div className="cs-meeting-header">
-                    <div className="cs-meeting-icon">
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h2 className="cs-panel-title">Last meeting update</h2>
-                      <p className="cs-panel-subtitle">
-                        CS × Product Sync · Jul 1, 2026 · {discussedIssues.length} items discussed
-                      </p>
-                    </div>
-                  </div>
-
-                  <div>
-                    {discussedIssues.map((issue) => (
-                      <button
-                        key={issue.issue_import_key}
-                        type="button"
-                        onClick={() => setSelectedIssue(issue)}
-                        className="cs-meeting-row"
-                      >
-                        <span className="cs-dot mt-1.5" style={{ backgroundColor: healthColor(issue.health) }} />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="cs-row-title">{issue.issue_title}</span>
-                            <span className="inline-flex items-center gap-1 text-[12px]" style={{ color: "var(--app-text-muted)" }}>
-                              <span className="cs-dot" style={{ backgroundColor: statusColor(issue.current_status) }} />
-                              {issue.current_status}
-                            </span>
-                          </div>
-                          <p className="cs-meeting-note">{issue.meeting_notes}</p>
-                          <div className="mt-1.5 text-[12px]" style={{ color: "var(--app-text-muted)" }}>
-                            Logged by {issue.csm || issue.assignee_name || "CS Team"}
-                          </div>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </section>
+                <LastMeetingCard meeting={latestMeeting} onOpenMeetings={() => setView("meetings")} />
               </div>
             ) : null}
 

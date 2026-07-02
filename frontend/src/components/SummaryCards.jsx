@@ -13,18 +13,18 @@ function formatCurrencyCompact(value) {
 
 const dots = {
   total: "#797265",
-  high: "#DC466E",
   risk: "#F89650",
-  released: "#1EAA91",
+  overdue: "#DC466E",
+  actions: "#1EAA91",
   acv: "#5F7FF4"
 };
 
 export function SummaryCards({ summary }) {
   const cards = [
-    { key: "total", label: "Total issues", value: summary?.totalIssues ?? "14" },
-    { key: "high", label: "High priority", value: summary?.highPriority ?? "6" },
-    { key: "risk", label: "At risk", value: summary?.atRisk ?? "9" },
-    { key: "released", label: "Released", value: summary?.released ?? "3" },
+    { key: "total", label: "Total issues", value: summary?.totalIssues ?? "0" },
+    { key: "risk", label: "At risk", value: summary?.atRisk ?? "0" },
+    { key: "overdue", label: "Overdue stages", value: summary?.overdueStages ?? "0" },
+    { key: "actions", label: "Open action items", value: summary?.openActionItems ?? "0" },
     { key: "acv", label: "Tracked ACV", value: summary ? formatCurrencyCompact(summary.totalAcv) : "$0" }
   ];
 

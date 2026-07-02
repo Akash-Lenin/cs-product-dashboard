@@ -105,6 +105,7 @@ Progress:
 - a new Role views workspace holds three dashboards: a CSM book view (risk, due dates, revision checks, book ACV), a PM pipeline view (discovery/review items, blockers, slipped ETAs, handoff gaps), and a leadership review (ACV at risk, largest exposure, pipeline by status, blocked items)
 - Google SSO is now built in via Supabase Auth: everstage.com accounts only, editor vs reviewer roles in a new cs_app_users table (new sign-ins are read-only reviewers), backend-enforced write permissions, audit-accurate attribution, and a login screen with sign-out; runs in open mode until SUPABASE_ANON_KEY and the Google provider are configured
 - the repo is Railway deploy-ready: lockfile refreshed and validated, all work committed on main, deploy steps and env vars documented in the README; pushing to GitHub and creating the Railway service are the remaining manual steps
+- the Overview was refined: the last-meeting section now shows the latest real meeting as a three-column recap (discussed / decisions & risks / action items with owners and due dates), the attention panel uses the weighted v2 scoring and respects snoozes, a Due this week panel surfaces near-term and overdue stage dates, and the summary cards now track At risk, Overdue stages, and Open action items
 
 ## Reference Files
 

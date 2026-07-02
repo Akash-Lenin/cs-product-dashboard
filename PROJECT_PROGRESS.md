@@ -716,6 +716,34 @@ Still manual (needs the GitHub/Railway account owner):
 4. Generate a domain under Settings → Networking, set it as `FRONTEND_ORIGIN`, redeploy
 5. When SSO is turned on later: add `SUPABASE_ANON_KEY`, and add the Railway URL to the Supabase auth redirect allow list
 
+## Latest Overview Refinement
+
+Date: 2026-07-02
+Status: completed
+
+What changed:
+
+- the `Last meeting update` section no longer fakes its data; it previously showed a hardcoded date and pulled notes stored on issue rows. It now renders the most recent real meeting from `cs_meetings` as a crisp three-column recap: Discussed (notes), Decisions & risks (typed notes), and Action items with owner, due date, and done state, capped at 4 items per column with a link into Meeting space
+- the overview `Needs attention` panel now uses the same weighted v2 scoring as the full view, respects snoozes, shows the top two signals per row, and its View all link goes to the Needs attention view instead of Issues
+- a `Due this week` panel now sits under the status breakdown: stage due dates in the next 7 days plus overdue items, overdue first, click-through to the drawer, with a link into Pending
+- summary cards were reworked for operations: Total issues, At risk, Overdue stages, Open action items (from meetings), and Tracked ACV replace the old High priority / Released cards
+- the Meeting space sidebar count now shows the number of logged meetings instead of issues that happen to carry meeting notes
+
+Files created:
+
+- [frontend/src/components/OverviewPanels.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/components/OverviewPanels.jsx)
+
+Files modified:
+
+- [frontend/src/App.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/App.jsx)
+- [frontend/src/components/SummaryCards.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/components/SummaryCards.jsx)
+- [frontend/src/components/WorkspaceViews.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/components/WorkspaceViews.jsx) (attention helpers exported for reuse)
+- [STATUS.md](/Users/akashlenin/Rag%202.0/cs-dashboard/STATUS.md)
+
+Known follow-up:
+
+- meetings created in Meeting space update the overview after a page refresh; live sync between the two views is a later polish item
+
 ## Useful Paths
 
 - App repo: [cs-dashboard](/Users/akashlenin/Rag%202.0/cs-dashboard)
