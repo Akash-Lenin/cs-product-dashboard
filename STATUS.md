@@ -104,6 +104,7 @@ Progress:
 - Needs attention now has Operator and Leadership weight profiles, an adjustable stale threshold (7/14/21/30 days) with a heavier very-stale weight, and team-wide snooze support stored on the issue row with a Snoozed section and unsnooze (requires the attention snooze migration)
 - a new Role views workspace holds three dashboards: a CSM book view (risk, due dates, revision checks, book ACV), a PM pipeline view (discovery/review items, blockers, slipped ETAs, handoff gaps), and a leadership review (ACV at risk, largest exposure, pipeline by status, blocked items)
 - Google SSO is now built in via Supabase Auth: everstage.com accounts only, editor vs reviewer roles in a new cs_app_users table (new sign-ins are read-only reviewers), backend-enforced write permissions, audit-accurate attribution, and a login screen with sign-out; runs in open mode until SUPABASE_ANON_KEY and the Google provider are configured
+- the repo is Railway deploy-ready: lockfile refreshed and validated, all work committed on main, deploy steps and env vars documented in the README; pushing to GitHub and creating the Railway service are the remaining manual steps
 
 ## Reference Files
 

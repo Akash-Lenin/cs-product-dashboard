@@ -696,6 +696,26 @@ Setup required (in order):
 7. Restart the backend and refresh the frontend
 8. Sign in once, then promote yourself: `update cs_app_users set role = 'editor' where email = 'akashlenin@everstage.com';`
 
+## Latest Railway Deployment Prep
+
+Date: 2026-07-02
+Status: repo is deploy-ready; the Railway dashboard steps are manual
+
+What changed (phase 8 from the recommended build order):
+
+- refreshed `package-lock.json` to include the new frontend dependency and verified with a clean `npm ci --dry-run` that all 259 packages resolve, which is the usual Railway build failure
+- committed all of today's work (meeting space, pending lanes, Jira handoff, quick triage, attention v2, role views, SSO groundwork) in one commit on `main`
+- documented the full Railway deploy procedure and required environment variables in the README
+- `railway.json` was already correct: Nixpacks build, `npm run start`, restart on failure; the backend serves the built frontend so one Railway service runs everything
+
+Still manual (needs the GitHub/Railway account owner):
+
+1. `git push origin main` from a machine with GitHub credentials
+2. Railway → New Project → Deploy from GitHub repo
+3. Set env vars: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `NODE_ENV=production`, `FRONTEND_ORIGIN=<railway url>`, plus `JIRA_*` if needed
+4. Generate a domain under Settings → Networking, set it as `FRONTEND_ORIGIN`, redeploy
+5. When SSO is turned on later: add `SUPABASE_ANON_KEY`, and add the Railway URL to the Supabase auth redirect allow list
+
 ## Useful Paths
 
 - App repo: [cs-dashboard](/Users/akashlenin/Rag%202.0/cs-dashboard)
