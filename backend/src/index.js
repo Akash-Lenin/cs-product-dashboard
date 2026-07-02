@@ -2,7 +2,10 @@ import cors from "cors";
 import express from "express";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import authRouter from "./routes/auth.js";
 import issuesRouter from "./routes/issues.js";
+import meetingsRouter from "./routes/meetings.js";
+import { requireAuth, requireEditorForWrites } from "./lib/auth.js";
 import { env } from "./config/env.js";
 
 const app = express();
@@ -21,7 +24,9 @@ app.get("/api/health", (_req, res) => {
   res.json({ ok: true });
 });
 
-app.use("/api/issues", issuesRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/issues", requireAuth, requireEditorForWrites, issuesRouter);
+app.use("/api/meetings", requireAuth, requireEditorForWrites, meetingsRouter);
 
 app.use(express.static(frontendDist));
 

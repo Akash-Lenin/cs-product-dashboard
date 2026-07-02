@@ -35,6 +35,17 @@ npm run dev:frontend
 
 See `.env.example`.
 
+For Jira-backed issue creation, also configure:
+
+- `JIRA_BASE_URL`
+- `JIRA_EMAIL`
+- `JIRA_API_TOKEN`
+- `JIRA_PROJECT_KEY`, defaults to `PRDF`
+- `JIRA_ISSUE_TYPE`, defaults to `Task`
+- `JIRA_CREATED_LABEL`, defaults to `cs-db-created`
+
+When a new issue is created without an existing PRD/Jira key, the backend creates a Jira issue first, applies the configured label, then stores the returned key in `jira_ticket`.
+
 ## Supabase tables used
 
 - `cs_accounts`
@@ -49,4 +60,3 @@ git init
 git add .
 git commit -m "Initial CS dashboard scaffold"
 ```
-

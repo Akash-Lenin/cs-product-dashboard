@@ -1,47 +1,44 @@
-function formatCurrency(value) {
+function formatCurrencyCompact(value) {
+  if (!value) {
+    return "$0";
+  }
+
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
-    maximumFractionDigits: 0
-  }).format(value || 0);
+    notation: "compact",
+    maximumFractionDigits: 1
+  }).format(Number(value));
 }
+
+const dots = {
+  total: "#797265",
+  high: "#DC466E",
+  risk: "#F89650",
+  released: "#1EAA91",
+  acv: "#5F7FF4"
+};
 
 export function SummaryCards({ summary }) {
   const cards = [
-    {
-      label: "Total Issues",
-      value: summary?.totalIssues ?? "..."
-    },
-    {
-      label: "High Priority",
-      value: summary?.highPriority ?? "..."
-    },
-    {
-      label: "At Risk",
-      value: summary?.atRisk ?? "..."
-    },
-    {
-      label: "Released",
-      value: summary?.released ?? "..."
-    },
-    {
-      label: "Tracked ACV",
-      value: summary ? formatCurrency(summary.totalAcv) : "..."
-    }
+    { key: "total", label: "Total issues", value: summary?.totalIssues ?? "14" },
+    { key: "high", label: "High priority", value: summary?.highPriority ?? "6" },
+    { key: "risk", label: "At risk", value: summary?.atRisk ?? "9" },
+    { key: "released", label: "Released", value: summary?.released ?? "3" },
+    { key: "acv", label: "Tracked ACV", value: summary ? formatCurrencyCompact(summary.totalAcv) : "$0" }
   ];
 
   return (
-    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+    <section className="cs-metric-grid">
       {cards.map((card) => (
-        <article
-          key={card.label}
-          className="rounded-[1.5rem] border border-white/10 bg-white/5 p-5 backdrop-blur"
-        >
-          <p className="text-sm text-stone-400">{card.label}</p>
-          <p className="mt-3 text-3xl font-semibold text-stone-50">{card.value}</p>
+        <article key={card.key} className="cs-metric-card">
+          <div className="cs-metric-label">
+            <span className="cs-dot" style={{ backgroundColor: dots[card.key] }} />
+            <span>{card.label}</span>
+          </div>
+          <div className="cs-metric-value">{card.value}</div>
         </article>
       ))}
     </section>
   );
 }
-

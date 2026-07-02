@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --watch src/index.js",
+    "dev": "node src/index.js",
     "build": "node -e \"console.log('backend build step complete')\"",
     "start": "node src/index.js"
   },
@@ -15,4 +15,3 @@
     "express": "^4.19.2"
   }
 }
-

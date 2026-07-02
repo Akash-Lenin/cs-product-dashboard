@@ -1,62 +1,80 @@
-function SelectField({ label, value, onChange, options }) {
+function SelectField({ value, onChange, options, placeholder }) {
   return (
-    <label className="flex flex-col gap-2">
-      <span className="text-sm text-stone-400">{label}</span>
+    <div className="relative">
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
-        className="rounded-2xl border border-white/10 bg-stone-900 px-4 py-3 text-stone-100 outline-none transition focus:border-amber-400"
+        className="min-w-[132px] appearance-none rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-2.5 pr-10 text-[13.5px] font-medium text-[var(--app-text-body)] outline-none transition focus:border-[var(--app-border-strong)]"
       >
-        <option value="">All</option>
+        <option value="">{placeholder}</option>
         {(options || []).map((option) => (
           <option key={option} value={option}>
             {option}
           </option>
         ))}
       </select>
-    </label>
-  );
-}
-
-export function FilterBar({ filters, options, onChange, onReset }) {
-  const update = (key, value) => onChange({ ...filters, [key]: value });
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-4 lg:flex-row">
-        <label className="flex-1">
-          <span className="mb-2 block text-sm text-stone-400">Search</span>
-          <input
-            value={filters.search}
-            onChange={(event) => update("search", event.target.value)}
-            placeholder="Search by issue, account, or Jira key"
-            className="w-full rounded-2xl border border-white/10 bg-stone-900 px-4 py-3 text-stone-100 outline-none transition focus:border-amber-400"
-          />
-        </label>
-        <div className="flex items-end">
-          <button
-            type="button"
-            onClick={onReset}
-            className="rounded-2xl border border-white/10 px-4 py-3 text-sm text-stone-200 transition hover:border-amber-400 hover:text-amber-200"
-          >
-            Reset filters
-          </button>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <SelectField label="CSM" value={filters.csm} onChange={(value) => update("csm", value)} options={options?.csms} />
-        <SelectField label="PM" value={filters.pm} onChange={(value) => update("pm", value)} options={options?.pms} />
-        <SelectField label="Health" value={filters.health} onChange={(value) => update("health", value)} options={options?.health} />
-        <SelectField label="Priority" value={filters.priority} onChange={(value) => update("priority", value)} options={options?.priorities} />
-        <SelectField
-          label="Current Status"
-          value={filters.currentStatus}
-          onChange={(value) => update("currentStatus", value)}
-          options={options?.currentStatuses}
-        />
-      </div>
+      <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[var(--app-text-muted)]">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </span>
     </div>
   );
 }
 
+export function FilterBar({ filters, options, onChange, onReset, resultCount = 0, totalCount = 0 }) {
+  const update = (key, value) => onChange({ ...filters, [key]: value });
+  const hasActiveFilters = Object.values(filters).some(Boolean);
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="relative min-w-[260px] flex-1">
+        <svg
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]"
+          width="17"
+          height="17"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <input
+          value={filters.search}
+          onChange={(event) => update("search", event.target.value)}
+          placeholder="Search issues, accounts, Jira..."
+          className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] py-2.5 pl-10 pr-4 text-sm text-[var(--app-text-body)] outline-none transition focus:border-[var(--app-border-strong)]"
+        />
+      </div>
+
+      <SelectField value={filters.health} onChange={(value) => update("health", value)} options={options?.health} placeholder="All health" />
+      <SelectField value={filters.priority} onChange={(value) => update("priority", value)} options={options?.priorities} placeholder="All priority" />
+      <SelectField
+        value={filters.currentStatus}
+        onChange={(value) => update("currentStatus", value)}
+        options={options?.currentStatuses}
+        placeholder="All status"
+      />
+      <SelectField value={filters.account} onChange={(value) => update("account", value)} options={options?.accounts} placeholder="All accounts" />
+      <SelectField value={filters.csm} onChange={(value) => update("csm", value)} options={options?.csms} placeholder="All CSMs" />
+
+      {hasActiveFilters ? (
+        <button
+          type="button"
+          onClick={onReset}
+          className="rounded-lg border border-[var(--app-border)] px-4 py-2.5 text-[13px] font-semibold text-[var(--app-text-muted)] transition hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
+        >
+          Clear
+        </button>
+      ) : null}
+
+      <div className="ml-auto text-[13px] text-[var(--app-text-muted)]">
+        {hasActiveFilters ? `${resultCount} of ${totalCount}` : totalCount} issues
+      </div>
+    </div>
+  );
+}
