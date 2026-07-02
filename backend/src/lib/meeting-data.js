@@ -8,6 +8,10 @@ function isMissingRelationError(error) {
   return error?.code === "PGRST205" || error?.code === "42P01";
 }
 
+function isMissingColumnError(error) {
+  return error?.code === "42703" || error?.code === "PGRST204";
+}
+
 function isNotFoundError(error) {
   return error?.code === "PGRST116";
 }
@@ -26,7 +30,7 @@ function badRequest(message) {
   return error;
 }
 
-async function logToIssueHistory(issueImportKey, body, authorName) {
+async function logToIssueHistory(issueImportKey, body, authorName, meetingId) {
   if (!issueImportKey) {
     return;
   }
@@ -35,7 +39,8 @@ async function logToIssueHistory(issueImportKey, body, authorName) {
     await createIssueUpdate(issueImportKey, {
       author_name: authorName || "Meeting space",
       entry_type: "meeting_note",
-      body
+      body,
+      meeting_id: meetingId || null
     });
   } catch (historyError) {
     // Issue history is a best-effort mirror; a missing history table
@@ -193,10 +198,15 @@ export async function updateMeeting(meetingId, payload = {}) {
 }
 
 export async function createMeetingNote(meetingId, payload = {}) {
-  const body = String(payload.body || "").trim();
+  let body = String(payload.body || "").trim();
   const noteType = String(payload.note_type || "discussion").trim() || "discussion";
   const authorName = String(payload.author_name || "").trim();
+  const ownerName = String(payload.owner_name || "").trim();
   const issueImportKey = String(payload.issue_import_key || "").trim() || null;
+
+  if (!body && issueImportKey) {
+    body = "Raised for discussion";
+  }
 
   if (!body) {
     throw badRequest("Note body is required");
@@ -208,17 +218,29 @@ export async function createMeetingNote(meetingId, payload = {}) {
 
   const meeting = await getMeetingRow(meetingId);
 
-  const { data, error } = await supabase
+  const insertPayload = {
+    meeting_id: meeting.id,
+    issue_import_key: issueImportKey,
+    note_type: noteType,
+    body,
+    author_name: authorName || null,
+    owner_name: ownerName || null
+  };
+
+  let { data, error } = await supabase
     .from("cs_meeting_notes")
-    .insert({
-      meeting_id: meeting.id,
-      issue_import_key: issueImportKey,
-      note_type: noteType,
-      body,
-      author_name: authorName || null
-    })
+    .insert(insertPayload)
     .select("*")
     .single();
+
+  if (error && isMissingColumnError(error)) {
+    const { owner_name: _omitted, ...legacyPayload } = insertPayload;
+    ({ data, error } = await supabase
+      .from("cs_meeting_notes")
+      .insert(legacyPayload)
+      .select("*")
+      .single());
+  }
 
   if (error) {
     if (isMissingRelationError(error)) {
@@ -229,9 +251,58 @@ export async function createMeetingNote(meetingId, payload = {}) {
 
   await logToIssueHistory(
     issueImportKey,
-    `Meeting note (${meeting.title}, ${meeting.meeting_date}): ${body}`,
-    authorName
+    `Meeting note (${meeting.title}, ${meeting.meeting_date}): ${body}${ownerName ? ` — owner ${ownerName}` : ""}`,
+    authorName,
+    meeting.id
   );
+
+  return data;
+}
+
+export async function updateMeetingNote(noteId, payload = {}) {
+  const allowedFields = ["body", "note_type", "owner_name"];
+
+  const updates = Object.fromEntries(
+    Object.entries(payload)
+      .filter(([key, value]) => allowedFields.includes(key) && value !== undefined)
+      .map(([key, value]) => [key, typeof value === "string" ? value.trim() || null : value])
+  );
+
+  if (!Object.keys(updates).length) {
+    throw badRequest("No valid fields supplied for update");
+  }
+
+  if (updates.body === null) {
+    throw badRequest("Note body cannot be empty");
+  }
+
+  if (updates.note_type && !NOTE_TYPES.includes(updates.note_type)) {
+    throw badRequest("Invalid note type supplied");
+  }
+
+  const { data, error } = await supabase
+    .from("cs_meeting_notes")
+    .update(updates)
+    .eq("id", noteId)
+    .select("*")
+    .single();
+
+  if (error) {
+    if (isNotFoundError(error)) {
+      const notFoundError = new Error("Meeting note not found");
+      notFoundError.status = 404;
+      throw notFoundError;
+    }
+    if (isMissingColumnError(error)) {
+      throw badRequest(
+        "Note owners are not enabled yet. Run the meeting collaboration migration first."
+      );
+    }
+    if (isMissingRelationError(error)) {
+      throw missingTablesError();
+    }
+    throw error;
+  }
 
   return data;
 }
@@ -272,7 +343,8 @@ export async function createActionItem(meetingId, payload = {}) {
   await logToIssueHistory(
     issueImportKey,
     `Action item from ${meeting.title} (${meeting.meeting_date}): ${description}${ownerName ? ` — owner ${ownerName}` : ""}${payload.due_date ? `, due ${payload.due_date}` : ""}`,
-    actorName
+    actorName,
+    meeting.id
   );
 
   return data;

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { jiraHandoffState } from "../lib/jira-handoff.js";
 
 function formatAcvCompact(value) {
@@ -67,7 +68,45 @@ function priorityPill(priority) {
   return { background: "#F3F1EC", color: "#57514A" };
 }
 
-export function IssueTable({ issues, loading, onSelectIssue }) {
+function AddToMeetingButton({ issue, added, onAddToMeeting }) {
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function handleClick(event) {
+    event.stopPropagation();
+    if (added || busy) return;
+    setBusy(true);
+    setFailed(false);
+    try {
+      await onAddToMeeting(issue);
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      disabled={busy}
+      title={failed ? "Failed — try again" : added ? "Already raised in this meeting" : "Add to the current meeting"}
+      className="mt-1.5 rounded-[8px] border px-2 py-1 text-[11px] font-semibold transition disabled:opacity-50"
+      style={
+        added
+          ? { borderColor: "#B9E2C6", background: "#DDF1E4", color: "#1F6B44" }
+          : failed
+            ? { borderColor: "rgba(132,42,66,0.3)", background: "#FFF5F7", color: "#842A42" }
+            : { borderColor: "var(--app-border)", background: "var(--app-surface-2)", color: "var(--app-text-body)" }
+      }
+    >
+      {busy ? "Adding…" : added ? "✓ In meeting" : failed ? "Retry" : "+ Meeting"}
+    </button>
+  );
+}
+
+export function IssueTable({ issues, loading, onSelectIssue, onAddToMeeting, addedIssueKeys }) {
   if (loading) {
     return <div className="px-6 py-14 text-center text-sm text-[var(--app-text-muted)]">Loading issues...</div>;
   }
@@ -106,11 +145,15 @@ export function IssueTable({ issues, loading, onSelectIssue }) {
           const pill = priorityPill(issue.priority);
 
           return (
-            <button
+            <div
               key={issue.issue_import_key}
-              type="button"
+              role="button"
+              tabIndex={0}
               onClick={() => onSelectIssue(issue)}
-              className="grid w-full items-center gap-4 border-b border-[var(--app-border)] bg-[var(--app-surface)] px-6 py-4 text-left transition hover:bg-[var(--app-surface-2)]"
+              onKeyDown={(event) => {
+                if (event.key === "Enter") onSelectIssue(issue);
+              }}
+              className="grid w-full cursor-pointer items-center gap-4 border-b border-[var(--app-border)] bg-[var(--app-surface)] px-6 py-4 text-left transition hover:bg-[var(--app-surface-2)]"
               style={{ gridTemplateColumns: "minmax(280px,1.9fr) 1.3fr 1fr 0.8fr 1fr 0.9fr" }}
             >
               <div className="flex items-start gap-3">
@@ -180,8 +223,15 @@ export function IssueTable({ issues, loading, onSelectIssue }) {
               <div className="text-right">
                 <div className="text-[14px] font-semibold text-[var(--app-text)]">{formatAcvCompact(issue.acv)}</div>
                 <div className="mt-0.5 text-[12px] text-[var(--app-text-muted)]">{issue.renewal_date || "No renewal"}</div>
+                {onAddToMeeting ? (
+                  <AddToMeetingButton
+                    issue={issue}
+                    added={addedIssueKeys?.has(issue.issue_import_key)}
+                    onAddToMeeting={onAddToMeeting}
+                  />
+                ) : null}
               </div>
-            </button>
+            </div>
           );
         })}
       </div>

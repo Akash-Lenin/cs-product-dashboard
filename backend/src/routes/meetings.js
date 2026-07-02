@@ -5,7 +5,8 @@ import {
   createMeetingNote,
   getMeetings,
   updateActionItem,
-  updateMeeting
+  updateMeeting,
+  updateMeetingNote
 } from "../lib/meeting-data.js";
 
 const router = Router();
@@ -23,6 +24,15 @@ router.post("/", async (req, res, next) => {
   try {
     const meeting = await createMeeting(req.body || {});
     res.status(201).json({ meeting });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch("/notes/:noteId", async (req, res, next) => {
+  try {
+    const note = await updateMeetingNote(req.params.noteId, req.body || {});
+    res.json({ note });
   } catch (error) {
     next(error);
   }

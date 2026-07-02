@@ -44,6 +44,10 @@ function isMissingRelationError(error) {
   return error?.code === "PGRST205" || error?.code === "42P01";
 }
 
+function isMissingColumnError(error) {
+  return error?.code === "42703" || error?.code === "PGRST204";
+}
+
 function isNotFoundError(error) {
   return error?.code === "PGRST116";
 }
@@ -776,11 +780,19 @@ export async function createPrdfForExistingIssue(issueImportKey, payload = {}) {
 }
 
 export async function getIssueUpdates(issueImportKey) {
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("cs_issue_updates")
-    .select("id,issue_import_key,entry_type,body,author_name,source,created_at")
+    .select("id,issue_import_key,entry_type,body,author_name,source,meeting_id,created_at")
     .eq("issue_import_key", issueImportKey)
     .order("created_at", { ascending: false });
+
+  if (error && isMissingColumnError(error)) {
+    ({ data, error } = await supabase
+      .from("cs_issue_updates")
+      .select("id,issue_import_key,entry_type,body,author_name,source,created_at")
+      .eq("issue_import_key", issueImportKey)
+      .order("created_at", { ascending: false }));
+  }
 
   if (error) {
     if (isMissingRelationError(error)) {
@@ -813,17 +825,32 @@ export async function createIssueUpdate(issueImportKey, payload) {
     throw error;
   }
 
-  const { data, error } = await supabase
+  const insertPayload = {
+    issue_import_key: issueImportKey,
+    entry_type: entryType,
+    body,
+    author_name: authorName || null,
+    source: "app"
+  };
+
+  if (payload?.meeting_id) {
+    insertPayload.meeting_id = payload.meeting_id;
+  }
+
+  let { data, error } = await supabase
     .from("cs_issue_updates")
-    .insert({
-      issue_import_key: issueImportKey,
-      entry_type: entryType,
-      body,
-      author_name: authorName || null,
-      source: "app"
-    })
-    .select("id,issue_import_key,entry_type,body,author_name,source,created_at")
+    .insert(insertPayload)
+    .select("id,issue_import_key,entry_type,body,author_name,source,meeting_id,created_at")
     .single();
+
+  if (error && isMissingColumnError(error)) {
+    const { meeting_id: _omitted, ...legacyPayload } = insertPayload;
+    ({ data, error } = await supabase
+      .from("cs_issue_updates")
+      .insert(legacyPayload)
+      .select("id,issue_import_key,entry_type,body,author_name,source,created_at")
+      .single());
+  }
 
   if (error) {
     if (isMissingRelationError(error)) {

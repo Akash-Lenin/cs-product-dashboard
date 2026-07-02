@@ -744,6 +744,46 @@ Known follow-up:
 
 - meetings created in Meeting space update the overview after a page refresh; live sync between the two views is a later polish item
 
+## Latest Meeting Space Collaboration Rework
+
+Date: 2026-07-02
+Status: completed
+
+What changed (per the new meeting workflow direction):
+
+- creating a meeting now drops you straight into a kanban board with three columns: Discussed, Decisions & risks, and Action items; the new meeting is automatically marked as the current ("Live") meeting
+- while a meeting is live, the Issues view shows a banner and a `+ Meeting` button on every row; clicking it raises that issue in the meeting's Discussed column without leaving the tracker, and the button flips to a confirmation state
+- decision and risk cards are editable in place and support tagging an owner (with a people suggestion list built from CSMs, PMs, assignees, and revision owners); the tagged person is stored as the owner of that decision or risk
+- action item cards are editable in place (description, owner, due date), keep the open/done checkbox, and show overdue state
+- meeting notes and action items linked to an issue are still mirrored into that issue's history, and history entries now carry the meeting reference, so the issue drawer shows a `View in Meeting space` link that jumps straight to that meeting's board
+- an owner filter above the board narrows Decisions & risks and Action items to one person, which is the first pass of assignee-based views
+- meetings state now lives in App and is shared between Meeting space and the Overview, so the overview recap updates without a page refresh
+- the live-meeting choice persists per browser, and an `End meeting` action clears it from either the board or the Issues banner
+
+Files created:
+
+- [supabase/migrations/2026-07-02_meeting_collab.sql](/Users/akashlenin/Rag%202.0/cs-dashboard/supabase/migrations/2026-07-02_meeting_collab.sql)
+
+Files modified:
+
+- [backend/src/lib/meeting-data.js](/Users/akashlenin/Rag%202.0/cs-dashboard/backend/src/lib/meeting-data.js) (note owners, editable notes, meeting-linked history mirroring, graceful pre-migration fallbacks)
+- [backend/src/lib/dashboard-data.js](/Users/akashlenin/Rag%202.0/cs-dashboard/backend/src/lib/dashboard-data.js)
+- [backend/src/routes/meetings.js](/Users/akashlenin/Rag%202.0/cs-dashboard/backend/src/routes/meetings.js) (new `PATCH /api/meetings/notes/:noteId`)
+- [frontend/src/components/MeetingSpace.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/components/MeetingSpace.jsx) (full kanban rewrite)
+- [frontend/src/components/IssueTable.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/components/IssueTable.jsx)
+- [frontend/src/components/IssueDetailDrawer.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/components/IssueDetailDrawer.jsx)
+- [frontend/src/App.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/App.jsx)
+- [STATUS.md](/Users/akashlenin/Rag%202.0/cs-dashboard/STATUS.md)
+
+Setup required:
+
+- run [2026-07-02_meeting_collab.sql](/Users/akashlenin/Rag%202.0/cs-dashboard/supabase/migrations/2026-07-02_meeting_collab.sql) in Supabase (adds note owners and the meeting link on history entries), then restart the backend. The app works before the migration runs, but owner tagging and the drawer link-back stay off until it does.
+
+Known follow-ups:
+
+- deeper assignee-based views (a cross-meeting "my action items" surface) are planned as the next iteration
+- the live-meeting flag is per browser; a shared team-wide live flag would need a small schema addition
+
 ## Useful Paths
 
 - App repo: [cs-dashboard](/Users/akashlenin/Rag%202.0/cs-dashboard)

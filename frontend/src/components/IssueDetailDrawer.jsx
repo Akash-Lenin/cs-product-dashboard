@@ -204,7 +204,7 @@ function MetaCell({ label, value, iconColor }) {
   );
 }
 
-function HistoryItem({ entry, isLatest }) {
+function HistoryItem({ entry, isLatest, onOpenMeeting }) {
   return (
     <div className="relative flex gap-4 pb-4">
       <div className="flex w-4 flex-col items-center">
@@ -219,6 +219,15 @@ function HistoryItem({ entry, isLatest }) {
           {entry.author_name || "CS Dashboard"} · {formatHistoryTime(entry.created_at)}
         </div>
         <div className="mt-2 whitespace-pre-wrap text-[13px] leading-6 text-[var(--app-text-body)]">{entry.body}</div>
+        {entry.meeting_id && onOpenMeeting ? (
+          <button
+            type="button"
+            onClick={() => onOpenMeeting(entry.meeting_id)}
+            className="mt-2 text-[12px] font-semibold underline underline-offset-2 text-[var(--app-text-body)]"
+          >
+            View in Meeting space
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -234,7 +243,8 @@ export function IssueDetailDrawer({
   jiraPrdfCreateUrl,
   onClose,
   onSave,
-  onDelete
+  onDelete,
+  onOpenMeeting
 }) {
   const safeIssue = issue || EMPTY_ISSUE;
   const [form, setForm] = useState(buildFormState(safeIssue));
@@ -573,7 +583,7 @@ export function IssueDetailDrawer({
                   <div className="text-sm text-[var(--app-text-muted)]">Loading activity...</div>
                 ) : issueUpdates.length ? (
                   issueUpdates.map((entry, index) => (
-                    <HistoryItem key={entry.id} entry={entry} isLatest={index === 0} />
+                    <HistoryItem key={entry.id} entry={entry} isLatest={index === 0} onOpenMeeting={onOpenMeeting} />
                   ))
                 ) : (
                   <div className="text-sm text-[var(--app-text-muted)]">

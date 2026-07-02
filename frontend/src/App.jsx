@@ -321,7 +321,57 @@ export default function App() {
   const [authError, setAuthError] = useState("");
   const [signingIn, setSigningIn] = useState(false);
   const [allowedDomain, setAllowedDomain] = useState("");
+  const [activeMeetingId, setActiveMeetingId] = useState(() => {
+    const stored = Number(window.localStorage.getItem("cs-active-meeting-id"));
+    return Number.isFinite(stored) && stored > 0 ? stored : null;
+  });
+  const [focusMeetingId, setFocusMeetingId] = useState(null);
+  const [addedToMeetingKeys, setAddedToMeetingKeys] = useState(() => new Set());
   const workspaceLoadedRef = useRef(false);
+
+  function handleSetActiveMeeting(meetingId) {
+    setActiveMeetingId(meetingId);
+    setAddedToMeetingKeys(new Set());
+    if (meetingId) {
+      window.localStorage.setItem("cs-active-meeting-id", String(meetingId));
+    } else {
+      window.localStorage.removeItem("cs-active-meeting-id");
+    }
+  }
+
+  async function handleAddIssueToMeeting(issue) {
+    if (!activeMeetingId) return;
+    const response = await apiFetch(`/api/meetings/${activeMeetingId}/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        issue_import_key: issue.issue_import_key,
+        note_type: "discussion",
+        body: "",
+        author_name: operatorName
+      })
+    });
+
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(payload?.error?.message || `Could not add to the meeting: ${response.status}`);
+    }
+
+    setMeetings((current) =>
+      current.map((meeting) =>
+        meeting.id === activeMeetingId
+          ? { ...meeting, notes: [...(meeting.notes || []), payload.note] }
+          : meeting
+      )
+    );
+    setAddedToMeetingKeys((current) => new Set([...current, issue.issue_import_key]));
+  }
+
+  function handleOpenMeeting(meetingId) {
+    setSelectedIssue(null);
+    setFocusMeetingId(meetingId);
+    setView("meetings");
+  }
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -511,6 +561,11 @@ export default function App() {
   }, [filteredIssues]);
 
   const summary = useMemo(() => getSummary(allIssues, meetings), [allIssues, meetings]);
+
+  const activeMeeting = useMemo(
+    () => meetings.find((meeting) => meeting.id === activeMeetingId) || null,
+    [meetings, activeMeetingId]
+  );
 
   const needsAttention = useMemo(() => {
     const storedMode = window.localStorage.getItem("cs-attention-mode") || "operator";
@@ -998,8 +1053,41 @@ export default function App() {
                   totalCount={allIssues.length}
                 />
 
+                {activeMeeting && canEdit ? (
+                  <div
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-[12px] border px-5 py-3"
+                    style={{ borderColor: "var(--app-border)", background: "var(--app-surface)" }}
+                  >
+                    <div className="text-[13px]" style={{ color: "var(--app-text-body)" }}>
+                      <span className="mr-2 rounded-full px-2 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.05em]" style={{ background: "#DDF1E4", color: "#1F6B44" }}>
+                        Live
+                      </span>
+                      Adding to <strong>{activeMeeting.title}</strong> — use the + on any row to raise it in the meeting.
+                    </div>
+                    <div className="flex gap-2">
+                      <button type="button" className="cs-link-button" onClick={() => handleOpenMeeting(activeMeeting.id)}>
+                        Open board
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded-[8px] border px-3 py-1.5 text-[12px] font-semibold"
+                        style={{ borderColor: "var(--app-border)", background: "var(--app-surface-2)", color: "var(--app-text-body)" }}
+                        onClick={() => handleSetActiveMeeting(null)}
+                      >
+                        End meeting
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
                 <section className="cs-table-card">
-                  <IssueTable issues={sortedIssues} loading={loading} onSelectIssue={setSelectedIssue} />
+                  <IssueTable
+                    issues={sortedIssues}
+                    loading={loading}
+                    onSelectIssue={setSelectedIssue}
+                    onAddToMeeting={activeMeeting && canEdit ? handleAddIssueToMeeting : null}
+                    addedIssueKeys={addedToMeetingKeys}
+                  />
                 </section>
               </div>
             ) : null}
@@ -1018,7 +1106,17 @@ export default function App() {
             ) : null}
 
             {!issuesError && view === "meetings" ? (
-              <MeetingSpaceView issues={allIssues} onSelectIssue={setSelectedIssue} operatorName={operatorName} />
+              <MeetingSpaceView
+                issues={allIssues}
+                meetings={meetings}
+                setMeetings={setMeetings}
+                onSelectIssue={setSelectedIssue}
+                operatorName={operatorName}
+                activeMeetingId={activeMeetingId}
+                onSetActiveMeeting={handleSetActiveMeeting}
+                focusMeetingId={focusMeetingId}
+                onConsumeFocus={() => setFocusMeetingId(null)}
+              />
             ) : null}
 
             {!issuesError && view === "recent" ? (
@@ -1061,6 +1159,7 @@ export default function App() {
         onClose={() => setSelectedIssue(null)}
         onSave={handleIssueSave}
         onDelete={handleIssueDelete}
+        onOpenMeeting={handleOpenMeeting}
       />
 
       <NewIssueModal
