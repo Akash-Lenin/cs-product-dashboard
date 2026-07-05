@@ -815,6 +815,25 @@ Setup required:
 
 - run [2026-07-02_meeting_topics.sql](/Users/akashlenin/Rag%202.0/cs-dashboard/supabase/migrations/2026-07-02_meeting_topics.sql) in Supabase, then restart the backend. Decisions and per-row actions stay disabled with a clear message until it runs.
 
+## Latest Issue Drawer Trim
+
+Date: 2026-07-02
+Status: completed
+
+Why: the drawer had accreted the original spreadsheet's columns as three dense sections (Ownership workspace, Status and revision checks, Workspace notes), which made editing feel heavier than it should.
+
+What changed:
+
+- the three edit sections collapsed into a cleaner set: `Working state` (assignee, stage due date, health, priority, status, resolution ETA), `People & tickets` (CSM, PM, dev Jira ticket, support ticket), and `Notes` (customers affected, next steps)
+- the per-issue meeting-note and product-feedback inputs were retired: meeting content now flows through Meeting space and lands in issue history automatically; existing values remain visible read-only (the last-meeting block and a legacy product-feedback block)
+- the revision owner / review ask inputs were removed from the drawer; existing revision data still shows as a read-only "Open revision check" line in Working state, and the Pending revision lane still works off the stored fields
+- no backend or schema changes; the API still accepts all fields, so nothing else had to move
+
+Files modified:
+
+- [frontend/src/components/IssueDetailDrawer.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/components/IssueDetailDrawer.jsx)
+- [STATUS.md](/Users/akashlenin/Rag%202.0/cs-dashboard/STATUS.md)
+
 ## Useful Paths
 
 - App repo: [cs-dashboard](/Users/akashlenin/Rag%202.0/cs-dashboard)

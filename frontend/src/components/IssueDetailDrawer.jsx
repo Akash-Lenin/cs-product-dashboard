@@ -180,15 +180,10 @@ function buildFormState(issue) {
     health: issue.health || "",
     priority: issue.priority || "",
     current_status: issue.current_status || "",
-    renewal_date: issue.renewal_date || "",
     resolution_eta: issue.resolution_eta || "",
     support_ticket: issue.support_ticket || "",
-    revision_owner: issue.revision_owner || "",
-    revision_request: issue.revision_request || "",
     customers_affected: issue.customers_affected || "",
-    next_steps: issue.next_steps || "",
-    meeting_notes: issue.meeting_notes || "",
-    product_feedback: issue.product_feedback || ""
+    next_steps: issue.next_steps || ""
   };
 }
 
@@ -543,10 +538,26 @@ export function IssueDetailDrawer({
             ) : null}
 
             <section className="mt-6 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-2)] p-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">Ownership workspace</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">Working state</div>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <InputField label="Primary assignee" value={form.assignee_name} onChange={(value) => setForm((current) => ({ ...current, assignee_name: value }))} />
+                <InputField label="Assignee (who moves this next)" value={form.assignee_name} onChange={(value) => setForm((current) => ({ ...current, assignee_name: value }))} />
                 <DateField label="Stage due date" value={form.stage_due_date} onChange={(value) => setForm((current) => ({ ...current, stage_due_date: value }))} />
+                <SelectField label="Health" value={form.health} onChange={(value) => setForm((current) => ({ ...current, health: value }))} options={filterOptions?.health} />
+                <SelectField label="Priority" value={form.priority} onChange={(value) => setForm((current) => ({ ...current, priority: value }))} options={filterOptions?.priorities} />
+                <SelectField label="Current status" value={form.current_status} onChange={(value) => setForm((current) => ({ ...current, current_status: value }))} options={filterOptions?.currentStatuses} />
+                <DateField label="Resolution ETA" value={form.resolution_eta} onChange={(value) => setForm((current) => ({ ...current, resolution_eta: value }))} />
+              </div>
+              {issue.revision_owner || issue.revision_request ? (
+                <div className="mt-4 rounded-[10px] border border-[var(--app-border)] bg-[var(--app-surface)] px-3.5 py-2.5 text-[12.5px] text-[var(--app-text-body)]">
+                  <span className="font-semibold">Open revision check:</span>{" "}
+                  {issue.revision_request || "Review needed"} · {issue.revision_owner || "no owner"}
+                </div>
+              ) : null}
+            </section>
+
+            <section className="mt-6 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-2)] p-4">
+              <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">People & tickets</div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <InputField label="CSM" value={form.csm} onChange={(value) => setForm((current) => ({ ...current, csm: value }))} />
                 <InputField label="PM" value={form.pm} onChange={(value) => setForm((current) => ({ ...current, pm: value }))} />
                 <InputField label="Dev Jira ticket" value={form.dev_jira_ticket} onChange={(value) => setForm((current) => ({ ...current, dev_jira_ticket: value }))} />
@@ -555,26 +566,24 @@ export function IssueDetailDrawer({
             </section>
 
             <section className="mt-6 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-2)] p-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">Status and revision checks</div>
-              <div className="mt-4 grid gap-4 md:grid-cols-2">
-                <SelectField label="Health" value={form.health} onChange={(value) => setForm((current) => ({ ...current, health: value }))} options={filterOptions?.health} />
-                <SelectField label="Priority" value={form.priority} onChange={(value) => setForm((current) => ({ ...current, priority: value }))} options={filterOptions?.priorities} />
-                <SelectField label="Current status" value={form.current_status} onChange={(value) => setForm((current) => ({ ...current, current_status: value }))} options={filterOptions?.currentStatuses} />
-                <DateField label="Resolution ETA" value={form.resolution_eta} onChange={(value) => setForm((current) => ({ ...current, resolution_eta: value }))} />
-                <InputField label="Revision owner" value={form.revision_owner} onChange={(value) => setForm((current) => ({ ...current, revision_owner: value }))} />
-                <InputField label="Review ask" value={form.revision_request} onChange={(value) => setForm((current) => ({ ...current, revision_request: value }))} placeholder="ACV check, ETA check, etc." />
-              </div>
-            </section>
-
-            <section className="mt-6 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-2)] p-4">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">Workspace notes</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">Notes</div>
               <div className="mt-4 grid gap-4">
                 <InputField label="Customers affected" value={form.customers_affected} onChange={(value) => setForm((current) => ({ ...current, customers_affected: value }))} />
                 <TextAreaField label="Next steps" value={form.next_steps} onChange={(value) => setForm((current) => ({ ...current, next_steps: value }))} rows={3} />
-                <TextAreaField label="Meeting note" value={form.meeting_notes} onChange={(value) => setForm((current) => ({ ...current, meeting_notes: value }))} rows={4} />
-                <TextAreaField label="Product feedback" value={form.product_feedback} onChange={(value) => setForm((current) => ({ ...current, product_feedback: value }))} rows={4} />
               </div>
+              <p className="mt-3 text-[12px] leading-5 text-[var(--app-text-muted)]">
+                Meeting notes and product feedback are captured in Meeting space now and land in the activity history below.
+              </p>
             </section>
+
+            {issue.product_feedback ? (
+              <section className="mt-6 rounded-[10px] border border-[var(--app-border)] bg-[var(--app-surface-2)] px-4 py-4">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">
+                  Product feedback (from the original tracker)
+                </div>
+                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-[var(--app-text-body)]">{issue.product_feedback}</p>
+              </section>
+            ) : null}
 
             <section className="mt-6">
               <div className="text-[11px] font-semibold uppercase tracking-[0.09em] text-[var(--app-text-muted)]">Activity history</div>

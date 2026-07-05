@@ -108,6 +108,7 @@ Progress:
 - the Overview was refined: the last-meeting section now shows the latest real meeting as a three-column recap (discussed / decisions & risks / action items with owners and due dates), the attention panel uses the weighted v2 scoring and respects snoozes, a Due this week panel surfaces near-term and overdue stage dates, and the summary cards now track At risk, Overdue stages, and Open action items
 - Meeting space is now a collaboration board: creating a meeting opens it live, issues are raised into it from the Issues view via a per-row + Meeting button, an owner filter narrows the board per person, and issue history entries link back to the meeting board (requires the meeting collab migration)
 - the board format changed from kanban to a topic table: each discussed item is a row with its decision, decision owner, and action items on the same line; decisions on issue-linked topics are mirrored into issue history; general action items and legacy standalone notes have their own sections (requires the meeting topics migration)
+- the issue drawer was trimmed: Working state (assignee, stage due, health, priority, status, ETA), People & tickets, and Notes replace the old three sections; meeting-note and product-feedback inputs are retired in favor of Meeting space, and revision fields show read-only
 
 ## Reference Files
 
