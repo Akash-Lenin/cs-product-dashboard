@@ -834,6 +834,33 @@ Files modified:
 - [frontend/src/components/IssueDetailDrawer.jsx](/Users/akashlenin/Rag%202.0/cs-dashboard/frontend/src/components/IssueDetailDrawer.jsx)
 - [STATUS.md](/Users/akashlenin/Rag%202.0/cs-dashboard/STATUS.md)
 
+## Latest Security Hardening
+
+Date: 2026-07-02
+Status: completed (code); RLS migration needs to be run in Supabase
+
+What changed:
+
+- new migration enables row-level security with no policies on all nine app tables; direct access with the anon/publishable key is now denied entirely, while the backend keeps working unchanged through the service role key. This must be run before Google SSO is enabled, since SSO distributes the anon key to browsers by design
+- the backend now fails closed in production: when `NODE_ENV=production` and `SUPABASE_ANON_KEY` is missing, all data routes return 503 with a clear message instead of silently falling back to no-login open mode; open mode remains available for local development, and startup logs state which mode is active
+- consequence for the current Railway deployment: it runs with `NODE_ENV=production` and no anon key, so the live URL stops serving data as soon as this deploys — intentional, since that URL currently has no login. It comes back to life when SSO configuration completes
+
+Files created:
+
+- [supabase/migrations/2026-07-02_enable_rls.sql](/Users/akashlenin/Rag%202.0/cs-dashboard/supabase/migrations/2026-07-02_enable_rls.sql)
+
+Files modified:
+
+- [backend/src/lib/auth.js](/Users/akashlenin/Rag%202.0/cs-dashboard/backend/src/lib/auth.js)
+- [backend/src/index.js](/Users/akashlenin/Rag%202.0/cs-dashboard/backend/src/index.js)
+- [STATUS.md](/Users/akashlenin/Rag%202.0/cs-dashboard/STATUS.md)
+
+Still open on the security list:
+
+- verify the GitHub repo is private and move it into the company org
+- enable Dependabot and secret scanning with push protection
+- rotate any key that ever gets pasted into chat, screenshots, or shared docs
+
 ## Useful Paths
 
 - App repo: [cs-dashboard](/Users/akashlenin/Rag%202.0/cs-dashboard)

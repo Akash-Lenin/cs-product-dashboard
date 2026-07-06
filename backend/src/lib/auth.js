@@ -112,6 +112,21 @@ export async function requireAuth(req, _res, next) {
   }
 }
 
+// Fail closed in production: if auth is not configured, refuse to serve data
+// instead of silently falling back to open mode. Open mode stays available
+// for local development only.
+export function enforceProductionAuth(_req, _res, next) {
+  if (env.nodeEnv === "production" && !authEnabled()) {
+    return next(
+      httpError(
+        503,
+        "Authentication is not configured on this production deployment. Set SUPABASE_ANON_KEY and redeploy; the API will not serve data without it."
+      )
+    );
+  }
+  return next();
+}
+
 export function requireEditorForWrites(req, _res, next) {
   if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
     return next();

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import authRouter from "./routes/auth.js";
 import issuesRouter from "./routes/issues.js";
 import meetingsRouter from "./routes/meetings.js";
-import { requireAuth, requireEditorForWrites } from "./lib/auth.js";
+import { authEnabled, enforceProductionAuth, requireAuth, requireEditorForWrites } from "./lib/auth.js";
 import { env } from "./config/env.js";
 
 const app = express();
@@ -25,8 +25,8 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.use("/api/auth", authRouter);
-app.use("/api/issues", requireAuth, requireEditorForWrites, issuesRouter);
-app.use("/api/meetings", requireAuth, requireEditorForWrites, meetingsRouter);
+app.use("/api/issues", enforceProductionAuth, requireAuth, requireEditorForWrites, issuesRouter);
+app.use("/api/meetings", enforceProductionAuth, requireAuth, requireEditorForWrites, meetingsRouter);
 
 app.use(express.static(frontendDist));
 
@@ -48,5 +48,14 @@ app.use((error, _req, res, _next) => {
 
 app.listen(env.port, () => {
   console.log(`CS dashboard backend listening on port ${env.port}`);
+  if (!authEnabled()) {
+    if (env.nodeEnv === "production") {
+      console.error(
+        "WARNING: auth is NOT configured (SUPABASE_ANON_KEY missing). Production fails closed: data routes return 503 until it is set."
+      );
+    } else {
+      console.warn("Auth not configured; running in open mode (development only).");
+    }
+  }
 });
 
